@@ -29,6 +29,9 @@ replay_pid*
 # Exclude gradle.kts files
 *.gradle.kts
 
+# Exclude local.properties
+local.properties
+
 # Additional Android Studio-specific exclusions
 # Built application files
 *.apk
@@ -114,4 +117,5 @@ build/
 *.sublime-workspace
 *.sublime-project
 *.vscode/
+
 
