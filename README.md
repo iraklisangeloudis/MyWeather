@@ -5,7 +5,7 @@ MyWeather is an intuitive weather application for Android, built using Kotlin an
 ## Features
 
 - **Current Weather**: Get the current weather conditions for your location.
-- **Weather Forecast**: View detailed weather forecasts for the next few days.
+- **Weather Forecast**: View detailed weather forecasts for the next seven days.
 - **Location Search**: Search for weather conditions in different locations using autocomplete.
 - **Reverse Geocoding**: Convert geographic coordinates into a human-readable address.
 
@@ -53,4 +53,3 @@ MyWeather is an intuitive weather application for Android, built using Kotlin an
 2. **Select a location** from the autocomplete suggestions.
 3. **View the weather forecast** for the selected location.
 4. **Use the GPS feature** to get the weather for your current location.
-5. **View the weather forecast** for up to 7 days.
