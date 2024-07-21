@@ -45,7 +45,7 @@ MyWeather is an intuitive weather application for Android, built using Kotlin an
     reverseGeocodeApiKey=YOUR_REVERSE_GEO_CODE_API_KEY
     ```
 
-2. **Replace `YOUR_LOCATIONIQ_API_KEY` and `YOUR_OPEN_METEO_API_KEY` with your actual API keys.**
+2. **Replace `YOUR_LOCATIONIQ_API_KEY` and `YOUR_REVERSE_GEO_CODE_API_KEY` with your actual API keys.**
 
 ## Usage
 
