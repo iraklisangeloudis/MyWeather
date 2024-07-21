@@ -41,8 +41,8 @@ MyWeather is an intuitive weather application for Android, built using Kotlin an
 
 1. **Open `local.properties` and add your API keys:**
     ```properties
-    locationiq_api_key=YOUR_LOCATIONIQ_API_KEY
-    open_meteo_api_key=YOUR_OPEN_METEO_API_KEY
+    locationIQApiKey=YOUR_LOCATIONIQ_API_KEY
+    reverseGeocodeApiKey=YOUR_OPEN_METEO_API_KEY
     ```
 
 2. **Replace `YOUR_LOCATIONIQ_API_KEY` and `YOUR_OPEN_METEO_API_KEY` with your actual API keys.**
