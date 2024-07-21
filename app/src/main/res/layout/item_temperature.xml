@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="wrap_content"
+    android:layout_height="wrap_content"
+    android:orientation="vertical"
+    android:gravity="center"
+    android:padding="8dp">
+
+    <TextView
+        android:id="@+id/textViewItemTime"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="12 PM"
+        android:textSize="16sp"
+        android:textColor="@color/light" />
+
+    <ImageView
+        android:id="@+id/imageViewItemWeather"
+        android:layout_width="40sp"
+        android:layout_height="40sp"
+        android:layout_below="@id/useLocationStatusButton"
+        android:layout_toEndOf="@id/useLocationStatusButton"
+        android:src="@drawable/clear1"
+        android:layout_marginBottom="16dp"
+        android:layout_alignParentEnd="true" />
+
+    <TextView
+        android:id="@+id/textViewItemTemperature"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="25°C"
+        android:textSize="18sp"
+        android:textColor="@color/light" />
+</LinearLayout>
