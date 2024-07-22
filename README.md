@@ -53,3 +53,13 @@ MyWeather is an intuitive weather application for Android, built using Kotlin an
 2. **Select a location** from the autocomplete suggestions.
 3. **View the weather forecast** for the selected location.
 4. **Use the GPS feature** to get the weather for your current location.
+
+
+## Screenshots
+
+<p>
+<img src="Screenshot_20240721_194528_MyWeather.jpg" alt="screenshot" width="200"/>
+<img src="Screenshot_20240721_211509_MyWeather.jpg" alt="screenshot" width="200"/>
+<img src="Screenshot_20240721_180010_MyWeather.jpg" alt="screenshot" width="200"/>
+<img src="Screenshot_20240721_180210_MyWeather.jpg" alt="screenshot" width="200"/>
+</p>
