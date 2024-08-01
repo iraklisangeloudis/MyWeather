@@ -5,7 +5,10 @@ import android.app.Activity
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Resources
+import android.graphics.PorterDuff
+import android.graphics.PorterDuffColorFilter
 import android.graphics.Rect
+import android.graphics.drawable.GradientDrawable
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -27,7 +30,6 @@ import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.annotations.SerializedName
-import com.google.gson.internal.GsonBuildConfig
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -665,8 +667,26 @@ class MainActivity : AppCompatActivity() {
             window.navigationBarColor = ContextCompat.getColor(this, R.color.Clear_Day_Blue)
             val mainLayout = findViewById<RelativeLayout>(R.id.mainLayout)
             mainLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.Clear_Day_Blue))
+            //val color = ContextCompat.getColor(applicationContext, R.color.Clear_Day_Blue)
+            //setOpaqueLayout(color)
         }
     }
+
+//    private fun setOpaqueLayout(color: Int){
+//        secondLayout = findViewById(R.id.secondLayout)
+//        // Retrieve the current drawable
+//        val backgroundDrawable = ContextCompat.getDrawable(this, R.drawable.rounded_border) as GradientDrawable
+//        // Set the color in the drawable
+//        val colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.ADD)
+//        backgroundDrawable.colorFilter = colorFilter
+//        // Apply the modified drawable as the background
+//        secondLayout.background = backgroundDrawable
+//        // Manually set padding (ensure this matches the padding defined in your XML)
+//        val paddingInDp = 8 // Replace with the actual padding value you want
+//        val scale = resources.displayMetrics.density
+//        val paddingInPx = (paddingInDp * scale + 0.5f).toInt()
+//        secondLayout.setPadding(paddingInPx, paddingInPx, paddingInPx, paddingInPx)
+//    }
 
     private fun addWeatherData(container: LinearLayout, day: String, precipitationProbability: Int, maxTemperature: Double, minTemperature: Double) {
         val dayLayout = LinearLayout(this).apply {
