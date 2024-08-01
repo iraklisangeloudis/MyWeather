@@ -109,7 +109,10 @@
                 android:layout_marginBottom="16dp"
                 android:background="@drawable/rounded_border"
                 android:layout_centerHorizontal="true"
-                android:padding="8dp">
+                android:padding="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
 
                 <!-- Humidity Container -->
                 <LinearLayout
@@ -122,6 +125,7 @@
                     <ImageView
                         android:layout_width="30dp"
                         android:layout_height="30dp"
+                        android:contentDescription="weather image"
                         android:src="@drawable/humidity" />
 
                     <TextView
@@ -208,7 +212,10 @@
                 android:visibility="gone"
                 android:background="@drawable/rounded_border"
                 android:layout_marginBottom="16dp"
-                android:padding="8dp" />
+                android:padding="8dp"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground"/>
 
             <LinearLayout
                 android:id="@+id/thirdLayout"
@@ -216,7 +223,10 @@
                 android:layout_height="wrap_content"
                 android:background="@drawable/rounded_border"
                 android:layout_marginBottom="16dp"
-                android:orientation="horizontal">
+                android:orientation="horizontal"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
 
                 <LinearLayout
                     android:id="@+id/sunRiseLayout"
@@ -288,7 +298,10 @@
                 android:layout_height="wrap_content"
                 android:orientation="vertical"
                 android:background="@drawable/rounded_border"
-                android:visibility="gone">
+                android:visibility="gone"
+                android:clickable="true"
+                android:focusable="true"
+                android:foreground="?attr/selectableItemBackground">
 
             </LinearLayout>
 
