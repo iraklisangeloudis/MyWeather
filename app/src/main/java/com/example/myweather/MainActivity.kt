@@ -2,13 +2,13 @@ package com.example.myweather
 
 import android.Manifest
 import android.app.Activity
+import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Resources
-import android.graphics.PorterDuff
-import android.graphics.PorterDuffColorFilter
+import android.database.sqlite.SQLiteDatabase
+import android.database.sqlite.SQLiteOpenHelper
 import android.graphics.Rect
-import android.graphics.drawable.GradientDrawable
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
@@ -18,6 +18,7 @@ import android.os.Handler
 import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
+import android.util.Log
 import android.util.TypedValue
 import android.view.LayoutInflater
 import android.view.View
@@ -44,6 +45,93 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+
+object WeatherContract {
+    object CurrentWeatherEntry {
+        const val TABLE_NAME = "current_weather"
+        const val COLUMN_TIME = "time"
+        const val COLUMN_TEMPERATURE = "temperature"
+        const val COLUMN_HUMIDITY = "humidity"
+        const val COLUMN_APPARENT_TEMPERATURE = "apparent_temperature"
+        const val COLUMN_IS_DAY = "is_day"
+        const val COLUMN_WEATHER_CODE = "weather_code"
+        const val COLUMN_WIND_SPEED = "wind_speed"
+    }
+
+    object HourlyWeatherEntry {
+        const val TABLE_NAME = "hourly_weather"
+        const val COLUMN_TIME = "time"
+        const val COLUMN_TEMPERATURE = "temperature"
+        const val COLUMN_WEATHER_CODE = "weather_code"
+        const val COLUMN_IS_DAY = "is_day"
+    }
+
+    object DailyWeatherEntry {
+        const val TABLE_NAME = "daily_weather"
+        const val COLUMN_DATE = "date"
+        const val COLUMN_WEATHER_CODE = "weather_code"
+        const val COLUMN_MAX_TEMPERATURE = "max_temperature"
+        const val COLUMN_MIN_TEMPERATURE = "min_temperature"
+        const val COLUMN_SUNRISE = "sunrise"
+        const val COLUMN_SUNSET = "sunset"
+        const val COLUMN_PRECIPITATION_PROBABILITY = "precipitation_probability"
+    }
+}
+class WeatherDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
+    companion object {
+        const val DATABASE_NAME = "weather.db"
+        const val DATABASE_VERSION = 2
+    }
+
+    override fun onCreate(db: SQLiteDatabase) {
+        val SQL_CREATE_CURRENT_WEATHER_TABLE = """
+            CREATE TABLE ${WeatherContract.CurrentWeatherEntry.TABLE_NAME} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ${WeatherContract.CurrentWeatherEntry.COLUMN_TIME} TEXT,
+                ${WeatherContract.CurrentWeatherEntry.COLUMN_TEMPERATURE} REAL,
+                ${WeatherContract.CurrentWeatherEntry.COLUMN_HUMIDITY} INTEGER,
+                ${WeatherContract.CurrentWeatherEntry.COLUMN_APPARENT_TEMPERATURE} REAL,
+                ${WeatherContract.CurrentWeatherEntry.COLUMN_IS_DAY} INTEGER,
+                ${WeatherContract.CurrentWeatherEntry.COLUMN_WEATHER_CODE} INTEGER,
+                ${WeatherContract.CurrentWeatherEntry.COLUMN_WIND_SPEED} REAL
+            )
+        """.trimIndent()
+
+        val SQL_CREATE_HOURLY_WEATHER_TABLE = """
+            CREATE TABLE ${WeatherContract.HourlyWeatherEntry.TABLE_NAME} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ${WeatherContract.HourlyWeatherEntry.COLUMN_TIME} TEXT,
+                ${WeatherContract.HourlyWeatherEntry.COLUMN_TEMPERATURE} REAL,
+                ${WeatherContract.HourlyWeatherEntry.COLUMN_WEATHER_CODE} INTEGER,
+                ${WeatherContract.HourlyWeatherEntry.COLUMN_IS_DAY} INTEGER
+            )
+        """.trimIndent()
+
+        val SQL_CREATE_DAILY_WEATHER_TABLE = """
+            CREATE TABLE ${WeatherContract.DailyWeatherEntry.TABLE_NAME} (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                ${WeatherContract.DailyWeatherEntry.COLUMN_DATE} TEXT,
+                ${WeatherContract.DailyWeatherEntry.COLUMN_WEATHER_CODE} INTEGER,
+                ${WeatherContract.DailyWeatherEntry.COLUMN_MAX_TEMPERATURE} REAL,
+                ${WeatherContract.DailyWeatherEntry.COLUMN_MIN_TEMPERATURE} REAL,
+                ${WeatherContract.DailyWeatherEntry.COLUMN_SUNRISE} TEXT,
+                ${WeatherContract.DailyWeatherEntry.COLUMN_SUNSET} TEXT,
+                ${WeatherContract.DailyWeatherEntry.COLUMN_PRECIPITATION_PROBABILITY} INTEGER
+            )
+        """.trimIndent()
+
+        db.execSQL(SQL_CREATE_CURRENT_WEATHER_TABLE)
+        db.execSQL(SQL_CREATE_HOURLY_WEATHER_TABLE)
+        db.execSQL(SQL_CREATE_DAILY_WEATHER_TABLE)
+    }
+
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        db.execSQL("DROP TABLE IF EXISTS ${WeatherContract.CurrentWeatherEntry.TABLE_NAME}")
+        db.execSQL("DROP TABLE IF EXISTS ${WeatherContract.HourlyWeatherEntry.TABLE_NAME}")
+        db.execSQL("DROP TABLE IF EXISTS ${WeatherContract.DailyWeatherEntry.TABLE_NAME}")
+        onCreate(db)
+    }
+}
 
 interface LocationIQService {
     @GET("v1/autocomplete.php")
@@ -471,11 +559,14 @@ class MainActivity : AppCompatActivity() {
 
         val weatherService = weatherRetrofit.create(WeatherService::class.java)
 
+
         weatherService.getCurrentWeather(latitude, longitude, "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m", "temperature_2m,weather_code,is_day","weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max").enqueue(object : Callback<WeatherResponse> {
             override fun onResponse(call: Call<WeatherResponse>, response: Response<WeatherResponse>) {
                 if (response.isSuccessful) {
                     val weather = response.body()
                     weather?.let {
+                        val dbHelper = WeatherDbHelper(this@MainActivity)
+
                         textViewTemperature.text = "${it.current.temperature} °C"
                         textViewHumidity.text = "${it.current.humidity} %"
                         textViewWindSpeed.text = "${it.current.windSpeed} km/h"
@@ -513,6 +604,13 @@ class MainActivity : AppCompatActivity() {
                             )
                         }
                         dailyWeatherLayout.visibility=View.VISIBLE
+
+                        clearCurrentWeather(dbHelper)
+                        clearDailyWeather(dbHelper)
+                        clearHourlyWeather(dbHelper)
+                        insertCurrentWeather(dbHelper, it.current)
+                        insertDailyWeather(dbHelper, it.daily)
+                        insertHourlyWeather(dbHelper,it.hourly,it.current.time)
                     }
                 }
             }
@@ -532,6 +630,91 @@ class MainActivity : AppCompatActivity() {
         showLoading(isLoading = false)
         // Dismiss the keyboard
         hideKeyboardAndListView()
+    }
+
+    private fun insertCurrentWeather(dbHelper: WeatherDbHelper, current: Current) {
+        val db = dbHelper.writableDatabase
+        val values = ContentValues().apply {
+            put(WeatherContract.CurrentWeatherEntry.COLUMN_TIME, current.time)
+            put(WeatherContract.CurrentWeatherEntry.COLUMN_TEMPERATURE, current.temperature)
+            put(WeatherContract.CurrentWeatherEntry.COLUMN_HUMIDITY, current.humidity)
+            put(WeatherContract.CurrentWeatherEntry.COLUMN_APPARENT_TEMPERATURE, current.apparentTemperature)
+            put(WeatherContract.CurrentWeatherEntry.COLUMN_IS_DAY, current.isDay)
+            put(WeatherContract.CurrentWeatherEntry.COLUMN_WEATHER_CODE, current.weatherCode)
+            put(WeatherContract.CurrentWeatherEntry.COLUMN_WIND_SPEED, current.windSpeed)
+        }
+        db.insert(WeatherContract.CurrentWeatherEntry.TABLE_NAME, null, values)
+    }
+
+    fun insertDailyWeather(dbHelper: SQLiteOpenHelper, daily: Daily) {
+        val db = dbHelper.writableDatabase
+        for (i in daily.time.indices) {
+            val values = ContentValues().apply {
+                put(WeatherContract.DailyWeatherEntry.COLUMN_DATE, daily.time[i])
+                put(WeatherContract.DailyWeatherEntry.COLUMN_WEATHER_CODE, daily.weatherCode[i])
+                put(WeatherContract.DailyWeatherEntry.COLUMN_MAX_TEMPERATURE, daily.temperatureMax[i])
+                put(WeatherContract.DailyWeatherEntry.COLUMN_MIN_TEMPERATURE, daily.temperatureMin[i])
+                put(WeatherContract.DailyWeatherEntry.COLUMN_SUNRISE, daily.sunrise[i])
+                put(WeatherContract.DailyWeatherEntry.COLUMN_SUNSET, daily.sunset[i])
+                put(
+                    WeatherContract.DailyWeatherEntry.COLUMN_PRECIPITATION_PROBABILITY,
+                    daily.precipitationProbabilityMax[i]
+                )
+            }
+            db.insert(WeatherContract.DailyWeatherEntry.TABLE_NAME, null, values)
+        }
+        //db.close() // Close the database connection after the operation is done
+    }
+
+    private fun insertHourlyWeather(dbHelper: WeatherDbHelper, hourly: Hourly, currentTime: String) {
+        val db = dbHelper.writableDatabase
+        val currentDateTime = LocalDateTime.parse(currentTime)
+
+        // Filter and prepare the data for the next 24 hours
+        val hourlyDataForNext24Hours = hourly.time.zip(hourly.temperature.zip(hourly.weatherCode.zip(hourly.isDay))) { time, triple ->
+            val (temperature, pair) = triple
+            val (weatherCode, isDay) = pair
+            HourlyData(time, temperature, weatherCode, isDay)
+        }.filter { data ->
+            LocalDateTime.parse(data.time).isAfter(currentDateTime)
+        }.take(24) // Take the next 24 hours
+
+        // Insert each filtered record into the database
+        hourlyDataForNext24Hours.forEach { data ->
+            val values = ContentValues().apply {
+                put(WeatherContract.HourlyWeatherEntry.COLUMN_TIME, data.time)
+                put(WeatherContract.HourlyWeatherEntry.COLUMN_TEMPERATURE, data.temperature)
+                put(WeatherContract.HourlyWeatherEntry.COLUMN_WEATHER_CODE, data.weatherCode)
+                put(WeatherContract.HourlyWeatherEntry.COLUMN_IS_DAY, data.isDay)
+            }
+            db.insert(WeatherContract.HourlyWeatherEntry.TABLE_NAME, null, values)
+        }
+        //db.close() // Close the database when done
+    }
+
+    private fun clearCurrentWeather(dbHelper: WeatherDbHelper) {
+        val db = dbHelper.writableDatabase
+        db.delete(WeatherContract.CurrentWeatherEntry.TABLE_NAME, null, null)
+    }
+
+    private fun clearHourlyWeather(dbHelper: WeatherDbHelper) {
+        val db = dbHelper.writableDatabase
+        db.delete(WeatherContract.HourlyWeatherEntry.TABLE_NAME, null, null)
+    }
+
+    private fun clearDailyWeather(dbHelper: WeatherDbHelper) {
+        val db = dbHelper.writableDatabase
+        db.delete(WeatherContract.DailyWeatherEntry.TABLE_NAME, null, null)
+    }
+
+    private fun deleteDatabase() {
+        val databaseName = "weather.db"
+        val success = deleteDatabase(databaseName)
+        if (success) {
+            Toast.makeText(this, "Database deleted successfully", Toast.LENGTH_SHORT).show()
+        } else {
+            Toast.makeText(this, "Failed to delete database", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun fetchAndDisplayCityName(latitude: Double, longitude: Double){
@@ -667,26 +850,8 @@ class MainActivity : AppCompatActivity() {
             window.navigationBarColor = ContextCompat.getColor(this, R.color.Clear_Day_Blue)
             val mainLayout = findViewById<RelativeLayout>(R.id.mainLayout)
             mainLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.Clear_Day_Blue))
-            //val color = ContextCompat.getColor(applicationContext, R.color.Clear_Day_Blue)
-            //setOpaqueLayout(color)
         }
     }
-
-//    private fun setOpaqueLayout(color: Int){
-//        secondLayout = findViewById(R.id.secondLayout)
-//        // Retrieve the current drawable
-//        val backgroundDrawable = ContextCompat.getDrawable(this, R.drawable.rounded_border) as GradientDrawable
-//        // Set the color in the drawable
-//        val colorFilter = PorterDuffColorFilter(color, PorterDuff.Mode.ADD)
-//        backgroundDrawable.colorFilter = colorFilter
-//        // Apply the modified drawable as the background
-//        secondLayout.background = backgroundDrawable
-//        // Manually set padding (ensure this matches the padding defined in your XML)
-//        val paddingInDp = 8 // Replace with the actual padding value you want
-//        val scale = resources.displayMetrics.density
-//        val paddingInPx = (paddingInDp * scale + 0.5f).toInt()
-//        secondLayout.setPadding(paddingInPx, paddingInPx, paddingInPx, paddingInPx)
-//    }
 
     private fun addWeatherData(container: LinearLayout, day: String, precipitationProbability: Int, maxTemperature: Double, minTemperature: Double) {
         val dayLayout = LinearLayout(this).apply {
