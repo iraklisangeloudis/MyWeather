@@ -14,6 +14,7 @@ MyWeather is an intuitive weather application for Android, built using Kotlin an
 - **Kotlin**
 - **Android Studio**
 - **Retrofit**
+- **SQLite**
 
 ## APIs Used
 
