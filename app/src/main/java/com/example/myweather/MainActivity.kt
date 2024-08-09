@@ -30,6 +30,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.google.gson.Gson
 import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -378,6 +379,16 @@ class MainActivity : AppCompatActivity() {
 
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
+
+        val sharedPreferences = getSharedPreferences("WeatherPrefs", Context.MODE_PRIVATE)
+        if (sharedPreferences.contains("current_weather") &&
+            sharedPreferences.contains("hourly_weather") &&
+            sharedPreferences.contains("daily_weather")
+        ){
+            loadWeatherDataFromSharedPreferences()
+        }
+        checkLocationAndFetchData()
+
         useLocationStatusButton.setOnClickListener {
             showLoading(isLoading = true)
             if(isLocationEnabled()){
@@ -611,6 +622,8 @@ class MainActivity : AppCompatActivity() {
                         insertCurrentWeather(dbHelper, it.current)
                         insertDailyWeather(dbHelper, it.daily)
                         insertHourlyWeather(dbHelper,it.hourly,it.current.time)
+
+                        saveWeatherDataToSharedPreferences(it.current, it.hourly, it.daily)
                     }
                 }
             }
@@ -644,6 +657,7 @@ class MainActivity : AppCompatActivity() {
             put(WeatherContract.CurrentWeatherEntry.COLUMN_WIND_SPEED, current.windSpeed)
         }
         db.insert(WeatherContract.CurrentWeatherEntry.TABLE_NAME, null, values)
+        db.close()
     }
 
     fun insertDailyWeather(dbHelper: SQLiteOpenHelper, daily: Daily) {
@@ -663,7 +677,7 @@ class MainActivity : AppCompatActivity() {
             }
             db.insert(WeatherContract.DailyWeatherEntry.TABLE_NAME, null, values)
         }
-        //db.close() // Close the database connection after the operation is done
+        db.close()
     }
 
     private fun insertHourlyWeather(dbHelper: WeatherDbHelper, hourly: Hourly, currentTime: String) {
@@ -689,7 +703,7 @@ class MainActivity : AppCompatActivity() {
             }
             db.insert(WeatherContract.HourlyWeatherEntry.TABLE_NAME, null, values)
         }
-        //db.close() // Close the database when done
+        db.close()
     }
 
     private fun clearCurrentWeather(dbHelper: WeatherDbHelper) {
@@ -955,4 +969,131 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun saveWeatherDataToSharedPreferences(current: Current, hourly: Hourly, daily: Daily) {
+        val sharedPreferences = getSharedPreferences("WeatherPrefs", Context.MODE_PRIVATE)
+        val editor = sharedPreferences.edit()
+
+        // Serialize the weather data to JSON strings
+        val gson = Gson()
+        val currentWeatherJson = gson.toJson(current)
+        val hourlyWeatherJson = gson.toJson(hourly)
+        val dailyWeatherJson = gson.toJson(daily)
+
+        // Save the JSON strings to SharedPreferences
+        editor.putString("current_weather", currentWeatherJson)
+        editor.putString("hourly_weather", hourlyWeatherJson)
+        editor.putString("daily_weather", dailyWeatherJson)
+
+        editor.apply() // Apply changes asynchronously
+    }
+
+    private fun loadWeatherDataFromSharedPreferences() {
+        val sharedPreferences = getSharedPreferences("WeatherPrefs", Context.MODE_PRIVATE)
+
+        // Retrieve the JSON strings from SharedPreferences
+        val gson = Gson()
+        val currentWeatherJson = sharedPreferences.getString("current_weather", null)
+        val hourlyWeatherJson = sharedPreferences.getString("hourly_weather", null)
+        val dailyWeatherJson = sharedPreferences.getString("daily_weather", null)
+
+        // Deserialize the JSON strings back into objects
+        val currentWeather = gson.fromJson(currentWeatherJson, Current::class.java)
+        val hourlyWeather = gson.fromJson(hourlyWeatherJson, Hourly::class.java)
+        val dailyWeather = gson.fromJson(dailyWeatherJson, Daily::class.java)
+
+        // Display the data if it's not null
+        currentWeather?.let {
+            textViewTemperature.text = "${it.temperature} °C"
+            textViewHumidity.text = "${it.humidity} %"
+            textViewWindSpeed.text = "${it.windSpeed} km/h"
+            textViewFeelsLike.text = "${it.apparentTemperature} °C"
+            val weatherIconResId = getWeatherIcon(weatherCode = it.weatherCode, isDay = it.isDay)
+            imageViewWeather.setImageResource(weatherIconResId)
+            textViewTime.text = formattedDateTime(it.time)
+
+            changeTheme(it.weatherCode, it.isDay)
+        }
+
+        // Update the hourly and daily weather data similarly
+        hourlyWeather?.let {
+            val currentTime = LocalDateTime.parse(currentWeather?.time ?: "")
+            val hourlyData = it.time.zip(it.temperature.zip(it.weatherCode.zip(it.isDay))) { time, triple ->
+                val (temperature, pair) = triple
+                val (weatherCode, isDay) = pair
+                HourlyData(time, temperature, weatherCode, isDay)
+            }.filter { data ->
+                LocalDateTime.parse(data.time).isAfter(currentTime)
+            }.take(24) // Take the 24 hours after the current time
+            val temperatureAdapter = TemperatureAdapter(hourlyData)
+            recyclerViewTemperatures.adapter = temperatureAdapter
+            recyclerViewTemperatures.visibility = View.VISIBLE
+        }
+
+        dailyWeather?.let {
+            sunRiseTextView.text = it.sunrise[0].split('T')[1]
+            sunSetTextView.text = it.sunset[0].split('T')[1]
+
+            dailyWeatherLayout.removeAllViews()
+            for (i in it.time.indices) {
+                addWeatherData(
+                    dailyWeatherLayout,
+                    it.time[i],
+                    it.precipitationProbabilityMax[i],
+                    it.temperatureMax[i],
+                    it.temperatureMin[i]
+                )
+            }
+            dailyWeatherLayout.visibility = View.VISIBLE
+        }
+    }
+
+    private fun checkLocationAndFetchData() {
+//        showLoading(isLoading = true)
+        // Check if location permissions are granted
+        if (isLocationPermissionGranted()) {
+            // Check if location services are enabled
+            if (isLocationEnabled()) {
+                // Fetch the current location
+                getLocation { latitude, longitude ->
+                    if (latitude != null && longitude != null) {
+                        // Trigger a new data fetch with the current location
+                        fetchWeatherData(latitude, longitude)
+                        fetchAndDisplayCityName(latitude,longitude)
+                    } else {
+                        // Handle location fetch failure
+                        Log.e("WeatherApp", "Failed to get location.")
+                        // Optionally, you can show a default message or use cached data
+                    }
+                }
+            } else {
+                Log.e("WeatherApp", "Location is not enabled.")
+                // Show a message to the user to enable location services
+            }
+        } else {
+            Log.e("WeatherApp", "Location permission not granted.")
+            // Request location permissions if not granted
+            ActivityCompat.requestPermissions(
+                this,
+                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
+                LOCATION_PERMISSION_REQUEST_CODE
+            )
+        }
+//        showLoading(isLoading = false)
+    }
+
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission granted, proceed with location fetch
+                checkLocationAndFetchData()
+            } else {
+                Log.e("WeatherApp", "Location permission denied.")
+            }
+        }
+    }
 }
