@@ -6,8 +6,6 @@ import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Resources
-import android.database.sqlite.SQLiteDatabase
-import android.database.sqlite.SQLiteOpenHelper
 import android.graphics.Rect
 import android.location.Location
 import android.location.LocationListener
@@ -46,91 +44,101 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
+import androidx.room.Entity
+import androidx.room.PrimaryKey
+import androidx.room.*
+import androidx.room.Database
+import androidx.room.Room
+import androidx.room.RoomDatabase
+import androidx.room.Query as RoomQuery
+import java.util.concurrent.Executors
 
-object WeatherContract {
-    object CurrentWeatherEntry {
-        const val TABLE_NAME = "current_weather"
-        const val COLUMN_TIME = "time"
-        const val COLUMN_TEMPERATURE = "temperature"
-        const val COLUMN_HUMIDITY = "humidity"
-        const val COLUMN_APPARENT_TEMPERATURE = "apparent_temperature"
-        const val COLUMN_IS_DAY = "is_day"
-        const val COLUMN_WEATHER_CODE = "weather_code"
-        const val COLUMN_WIND_SPEED = "wind_speed"
-    }
+@Entity(tableName = "current_weather")
+data class CurrentWeatherEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val time: String,
+    val temperature: Double,
+    val humidity: Int,
+    val apparentTemperature: Double,
+    val isDay: Int,
+    val weatherCode: Int,
+    val windSpeed: Double
+)
 
-    object HourlyWeatherEntry {
-        const val TABLE_NAME = "hourly_weather"
-        const val COLUMN_TIME = "time"
-        const val COLUMN_TEMPERATURE = "temperature"
-        const val COLUMN_WEATHER_CODE = "weather_code"
-        const val COLUMN_IS_DAY = "is_day"
-    }
+@Entity(tableName = "hourly_weather")
+data class HourlyWeatherEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val time: String,
+    val temperature: Double,
+    val weatherCode: Int,
+    val isDay: Int
+)
 
-    object DailyWeatherEntry {
-        const val TABLE_NAME = "daily_weather"
-        const val COLUMN_DATE = "date"
-        const val COLUMN_WEATHER_CODE = "weather_code"
-        const val COLUMN_MAX_TEMPERATURE = "max_temperature"
-        const val COLUMN_MIN_TEMPERATURE = "min_temperature"
-        const val COLUMN_SUNRISE = "sunrise"
-        const val COLUMN_SUNSET = "sunset"
-        const val COLUMN_PRECIPITATION_PROBABILITY = "precipitation_probability"
-    }
+@Entity(tableName = "daily_weather")
+data class DailyWeatherEntity(
+    @PrimaryKey(autoGenerate = true) val id: Int = 0,
+    val date: String,
+    val weatherCode: Int,
+    val maxTemperature: Double,
+    val minTemperature: Double,
+    val sunrise: String,
+    val sunset: String,
+    val precipitationProbability: Int
+)
+
+@Dao
+interface WeatherDao {
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertCurrentWeather(weather: CurrentWeatherEntity)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertHourlyWeather(weather: List<HourlyWeatherEntity>)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    fun insertDailyWeather(weather: List<DailyWeatherEntity>)
+
+    @RoomQuery("SELECT * FROM current_weather")
+    fun getCurrentWeather(): CurrentWeatherEntity?
+
+    @RoomQuery("DELETE FROM current_weather")
+    fun clearCurrentWeather()
+
+    @RoomQuery("SELECT * FROM hourly_weather")
+    fun getHourlyWeather(): List<HourlyWeatherEntity>
+
+    @RoomQuery("DELETE FROM hourly_weather")
+    fun clearHourlyWeather()
+
+    @RoomQuery("SELECT * FROM daily_weather")
+    fun getDailyWeather(): List<DailyWeatherEntity>
+
+    @RoomQuery("DELETE FROM daily_weather")
+    fun clearDailyWeather()
 }
-class WeatherDbHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
+
+@Database(
+    entities = [CurrentWeatherEntity::class, HourlyWeatherEntity::class, DailyWeatherEntity::class],
+    version = 1,
+    exportSchema = false
+)
+abstract class WeatherDatabase : RoomDatabase() {
+    abstract fun weatherDao(): WeatherDao
+
     companion object {
-        const val DATABASE_NAME = "weather.db"
-        const val DATABASE_VERSION = 2
-    }
+        @Volatile
+        private var INSTANCE: WeatherDatabase? = null
 
-    override fun onCreate(db: SQLiteDatabase) {
-        val SQL_CREATE_CURRENT_WEATHER_TABLE = """
-            CREATE TABLE ${WeatherContract.CurrentWeatherEntry.TABLE_NAME} (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ${WeatherContract.CurrentWeatherEntry.COLUMN_TIME} TEXT,
-                ${WeatherContract.CurrentWeatherEntry.COLUMN_TEMPERATURE} REAL,
-                ${WeatherContract.CurrentWeatherEntry.COLUMN_HUMIDITY} INTEGER,
-                ${WeatherContract.CurrentWeatherEntry.COLUMN_APPARENT_TEMPERATURE} REAL,
-                ${WeatherContract.CurrentWeatherEntry.COLUMN_IS_DAY} INTEGER,
-                ${WeatherContract.CurrentWeatherEntry.COLUMN_WEATHER_CODE} INTEGER,
-                ${WeatherContract.CurrentWeatherEntry.COLUMN_WIND_SPEED} REAL
-            )
-        """.trimIndent()
-
-        val SQL_CREATE_HOURLY_WEATHER_TABLE = """
-            CREATE TABLE ${WeatherContract.HourlyWeatherEntry.TABLE_NAME} (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ${WeatherContract.HourlyWeatherEntry.COLUMN_TIME} TEXT,
-                ${WeatherContract.HourlyWeatherEntry.COLUMN_TEMPERATURE} REAL,
-                ${WeatherContract.HourlyWeatherEntry.COLUMN_WEATHER_CODE} INTEGER,
-                ${WeatherContract.HourlyWeatherEntry.COLUMN_IS_DAY} INTEGER
-            )
-        """.trimIndent()
-
-        val SQL_CREATE_DAILY_WEATHER_TABLE = """
-            CREATE TABLE ${WeatherContract.DailyWeatherEntry.TABLE_NAME} (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ${WeatherContract.DailyWeatherEntry.COLUMN_DATE} TEXT,
-                ${WeatherContract.DailyWeatherEntry.COLUMN_WEATHER_CODE} INTEGER,
-                ${WeatherContract.DailyWeatherEntry.COLUMN_MAX_TEMPERATURE} REAL,
-                ${WeatherContract.DailyWeatherEntry.COLUMN_MIN_TEMPERATURE} REAL,
-                ${WeatherContract.DailyWeatherEntry.COLUMN_SUNRISE} TEXT,
-                ${WeatherContract.DailyWeatherEntry.COLUMN_SUNSET} TEXT,
-                ${WeatherContract.DailyWeatherEntry.COLUMN_PRECIPITATION_PROBABILITY} INTEGER
-            )
-        """.trimIndent()
-
-        db.execSQL(SQL_CREATE_CURRENT_WEATHER_TABLE)
-        db.execSQL(SQL_CREATE_HOURLY_WEATHER_TABLE)
-        db.execSQL(SQL_CREATE_DAILY_WEATHER_TABLE)
-    }
-
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        db.execSQL("DROP TABLE IF EXISTS ${WeatherContract.CurrentWeatherEntry.TABLE_NAME}")
-        db.execSQL("DROP TABLE IF EXISTS ${WeatherContract.HourlyWeatherEntry.TABLE_NAME}")
-        db.execSQL("DROP TABLE IF EXISTS ${WeatherContract.DailyWeatherEntry.TABLE_NAME}")
-        onCreate(db)
+        fun getDatabase(context: Context): WeatherDatabase {
+            return INSTANCE ?: synchronized(this) {
+                val instance = Room.databaseBuilder(
+                    context.applicationContext,
+                    WeatherDatabase::class.java,
+                    "weather.db"
+                ).fallbackToDestructiveMigration().build()
+                INSTANCE = instance
+                instance
+            }
+        }
     }
 }
 
@@ -576,7 +584,6 @@ class MainActivity : AppCompatActivity() {
                 if (response.isSuccessful) {
                     val weather = response.body()
                     weather?.let {
-                        val dbHelper = WeatherDbHelper(this@MainActivity)
 
                         textViewTemperature.text = "${it.current.temperature} °C"
                         textViewHumidity.text = "${it.current.humidity} %"
@@ -616,13 +623,17 @@ class MainActivity : AppCompatActivity() {
                         }
                         dailyWeatherLayout.visibility=View.VISIBLE
 
-                        clearCurrentWeather(dbHelper)
-                        clearDailyWeather(dbHelper)
-                        clearHourlyWeather(dbHelper)
-                        insertCurrentWeather(dbHelper, it.current)
-                        insertDailyWeather(dbHelper, it.daily)
-                        insertHourlyWeather(dbHelper,it.hourly,it.current.time)
+                        val database = WeatherDatabase.getDatabase(this@MainActivity)
+                        //this@MainActivity.deleteDatabase("weather.db")
 
+                        insertCurrentWeather(database, it.current)
+                        logCurrentWeather(database)
+                        insertDailyWeather(database, it.daily)
+                        logDailyWeather(database)
+                        insertHourlyWeather(database, it.hourly, it.current.time)
+                        logHourlyWeather(database)
+
+                        // Save data to SharedPreferences
                         saveWeatherDataToSharedPreferences(it.current, it.hourly, it.daily)
                     }
                 }
@@ -645,81 +656,6 @@ class MainActivity : AppCompatActivity() {
         hideKeyboardAndListView()
     }
 
-    private fun insertCurrentWeather(dbHelper: WeatherDbHelper, current: Current) {
-        val db = dbHelper.writableDatabase
-        val values = ContentValues().apply {
-            put(WeatherContract.CurrentWeatherEntry.COLUMN_TIME, current.time)
-            put(WeatherContract.CurrentWeatherEntry.COLUMN_TEMPERATURE, current.temperature)
-            put(WeatherContract.CurrentWeatherEntry.COLUMN_HUMIDITY, current.humidity)
-            put(WeatherContract.CurrentWeatherEntry.COLUMN_APPARENT_TEMPERATURE, current.apparentTemperature)
-            put(WeatherContract.CurrentWeatherEntry.COLUMN_IS_DAY, current.isDay)
-            put(WeatherContract.CurrentWeatherEntry.COLUMN_WEATHER_CODE, current.weatherCode)
-            put(WeatherContract.CurrentWeatherEntry.COLUMN_WIND_SPEED, current.windSpeed)
-        }
-        db.insert(WeatherContract.CurrentWeatherEntry.TABLE_NAME, null, values)
-        db.close()
-    }
-
-    fun insertDailyWeather(dbHelper: SQLiteOpenHelper, daily: Daily) {
-        val db = dbHelper.writableDatabase
-        for (i in daily.time.indices) {
-            val values = ContentValues().apply {
-                put(WeatherContract.DailyWeatherEntry.COLUMN_DATE, daily.time[i])
-                put(WeatherContract.DailyWeatherEntry.COLUMN_WEATHER_CODE, daily.weatherCode[i])
-                put(WeatherContract.DailyWeatherEntry.COLUMN_MAX_TEMPERATURE, daily.temperatureMax[i])
-                put(WeatherContract.DailyWeatherEntry.COLUMN_MIN_TEMPERATURE, daily.temperatureMin[i])
-                put(WeatherContract.DailyWeatherEntry.COLUMN_SUNRISE, daily.sunrise[i])
-                put(WeatherContract.DailyWeatherEntry.COLUMN_SUNSET, daily.sunset[i])
-                put(
-                    WeatherContract.DailyWeatherEntry.COLUMN_PRECIPITATION_PROBABILITY,
-                    daily.precipitationProbabilityMax[i]
-                )
-            }
-            db.insert(WeatherContract.DailyWeatherEntry.TABLE_NAME, null, values)
-        }
-        db.close()
-    }
-
-    private fun insertHourlyWeather(dbHelper: WeatherDbHelper, hourly: Hourly, currentTime: String) {
-        val db = dbHelper.writableDatabase
-        val currentDateTime = LocalDateTime.parse(currentTime)
-
-        // Filter and prepare the data for the next 24 hours
-        val hourlyDataForNext24Hours = hourly.time.zip(hourly.temperature.zip(hourly.weatherCode.zip(hourly.isDay))) { time, triple ->
-            val (temperature, pair) = triple
-            val (weatherCode, isDay) = pair
-            HourlyData(time, temperature, weatherCode, isDay)
-        }.filter { data ->
-            LocalDateTime.parse(data.time).isAfter(currentDateTime)
-        }.take(24) // Take the next 24 hours
-
-        // Insert each filtered record into the database
-        hourlyDataForNext24Hours.forEach { data ->
-            val values = ContentValues().apply {
-                put(WeatherContract.HourlyWeatherEntry.COLUMN_TIME, data.time)
-                put(WeatherContract.HourlyWeatherEntry.COLUMN_TEMPERATURE, data.temperature)
-                put(WeatherContract.HourlyWeatherEntry.COLUMN_WEATHER_CODE, data.weatherCode)
-                put(WeatherContract.HourlyWeatherEntry.COLUMN_IS_DAY, data.isDay)
-            }
-            db.insert(WeatherContract.HourlyWeatherEntry.TABLE_NAME, null, values)
-        }
-        db.close()
-    }
-
-    private fun clearCurrentWeather(dbHelper: WeatherDbHelper) {
-        val db = dbHelper.writableDatabase
-        db.delete(WeatherContract.CurrentWeatherEntry.TABLE_NAME, null, null)
-    }
-
-    private fun clearHourlyWeather(dbHelper: WeatherDbHelper) {
-        val db = dbHelper.writableDatabase
-        db.delete(WeatherContract.HourlyWeatherEntry.TABLE_NAME, null, null)
-    }
-
-    private fun clearDailyWeather(dbHelper: WeatherDbHelper) {
-        val db = dbHelper.writableDatabase
-        db.delete(WeatherContract.DailyWeatherEntry.TABLE_NAME, null, null)
-    }
 
     private fun deleteDatabase() {
         val databaseName = "weather.db"
@@ -1048,7 +984,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkLocationAndFetchData() {
-//        showLoading(isLoading = true)
+        showLoading(isLoading = true)
         // Check if location permissions are granted
         if (isLocationPermissionGranted()) {
             // Check if location services are enabled
@@ -1061,16 +997,17 @@ class MainActivity : AppCompatActivity() {
                         fetchAndDisplayCityName(latitude,longitude)
                     } else {
                         // Handle location fetch failure
-                        Log.e("WeatherApp", "Failed to get location.")
-                        // Optionally, you can show a default message or use cached data
+                        Toast.makeText(this@MainActivity, "Unable to get location", Toast.LENGTH_SHORT).show()
+                        showLoading(isLoading = false)
                     }
                 }
             } else {
-                Log.e("WeatherApp", "Location is not enabled.")
-                // Show a message to the user to enable location services
+                Toast.makeText(this@MainActivity, "Location disabled", Toast.LENGTH_SHORT).show()
+                showLoading(isLoading = false)
             }
         } else {
-            Log.e("WeatherApp", "Location permission not granted.")
+            Toast.makeText(this@MainActivity, "Location permission not granted", Toast.LENGTH_SHORT).show()
+            showLoading(isLoading = false)
             // Request location permissions if not granted
             ActivityCompat.requestPermissions(
                 this,
@@ -1078,7 +1015,6 @@ class MainActivity : AppCompatActivity() {
                 LOCATION_PERMISSION_REQUEST_CODE
             )
         }
-//        showLoading(isLoading = false)
     }
 
     override fun onRequestPermissionsResult(
@@ -1096,4 +1032,170 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    private val executor = Executors.newSingleThreadExecutor()
+
+    private  fun insertCurrentWeather(database: WeatherDatabase, current: Current) {
+        executor.execute {
+            try {
+                Log.d("WeatherApp", "insertCurrentWeather is running on thread: ${Thread.currentThread().name}")
+                val weatherDao = database.weatherDao()
+                weatherDao.clearCurrentWeather()
+                val entity = CurrentWeatherEntity(
+                    time = current.time,
+                    temperature = current.temperature,
+                    humidity = current.humidity,
+                    apparentTemperature = current.apparentTemperature,
+                    isDay = current.isDay,
+                    weatherCode = current.weatherCode,
+                    windSpeed = current.windSpeed
+                )
+                weatherDao.insertCurrentWeather(entity)
+                Log.d("WeatherApp", "insertCurrentWeather: Insertion successful")
+            } catch (e: Exception) {
+                Log.e("WeatherApp", "insertCurrentWeather: Insertion failed", e)
+            }
+        }
+    }
+
+    fun logCurrentWeather(database: WeatherDatabase) {
+        executor.execute {
+            try {
+                val weatherDao = database.weatherDao()
+                val currentWeather = weatherDao.getCurrentWeather()
+                if (currentWeather != null) {
+                    Log.d("CurrentWeatherLog", "Current Weather Data:")
+                    Log.d("CurrentWeatherLog", "Time: ${currentWeather.time}")
+                    Log.d("CurrentWeatherLog", "Temperature: ${currentWeather.temperature}")
+                    Log.d("CurrentWeatherLog", "Humidity: ${currentWeather.humidity}")
+                    Log.d("CurrentWeatherLog", "Apparent Temperature: ${currentWeather.apparentTemperature}")
+                    Log.d("CurrentWeatherLog", "Is Day: ${currentWeather.isDay}")
+                    Log.d("CurrentWeatherLog", "Weather Code: ${currentWeather.weatherCode}")
+                    Log.d("CurrentWeatherLog", "Wind Speed: ${currentWeather.windSpeed}")
+                    Log.d("CurrentWeatherLog", "----------------------")
+                } else {
+                    Log.d("CurrentWeatherLog", "No current weather data available.")
+                }
+            } catch (e: Exception) {
+                Log.e("CurrentWeatherLog", "Error fetching current weather data", e)
+            }
+        }
+    }
+
+    fun insertDailyWeather(database: WeatherDatabase, daily: Daily) {
+        executor.execute {
+            try {
+                Log.d("WeatherApp", "insertDailyWeather is running on thread: ${Thread.currentThread().name}")
+                val weatherDao = database.weatherDao()
+
+                // Clear existing entries
+                weatherDao.clearDailyWeather()
+                Log.d("WeatherApp", "Daily weather table cleared")
+
+                // Prepare and insert new entries
+                val entities = daily.time.indices.map { i ->
+                    DailyWeatherEntity(
+                        date = daily.time[i],
+                        weatherCode = daily.weatherCode[i],
+                        maxTemperature = daily.temperatureMax[i],
+                        minTemperature = daily.temperatureMin[i],
+                        sunrise = daily.sunrise[i],
+                        sunset = daily.sunset[i],
+                        precipitationProbability = daily.precipitationProbabilityMax[i]
+                    )
+                }
+                weatherDao.insertDailyWeather(entities)
+                Log.d("WeatherApp", "insertDailyWeather: Insertion successful")
+            } catch (e: Exception) {
+                Log.e("WeatherApp", "insertDailyWeather: Insertion failed", e)
+            }
+        }
+    }
+
+    fun logDailyWeather(database: WeatherDatabase) {
+        executor.execute {
+            try {
+                val weatherDao = database.weatherDao()
+                val dailyWeatherList = weatherDao.getDailyWeather()
+                if (dailyWeatherList.isNotEmpty()) {
+                    Log.d("DailyWeatherLog", "Daily Weather Data:")
+                    dailyWeatherList.forEach { dailyWeather ->
+                        Log.d("DailyWeatherLog", "Date: ${dailyWeather.date}")
+                        Log.d("DailyWeatherLog", "Weather Code: ${dailyWeather.weatherCode}")
+                        Log.d("DailyWeatherLog", "Max Temperature: ${dailyWeather.maxTemperature}")
+                        Log.d("DailyWeatherLog", "Min Temperature: ${dailyWeather.minTemperature}")
+                        Log.d("DailyWeatherLog", "Sunrise: ${dailyWeather.sunrise}")
+                        Log.d("DailyWeatherLog", "Sunset: ${dailyWeather.sunset}")
+                        Log.d("DailyWeatherLog", "Precipitation Probability: ${dailyWeather.precipitationProbability}")
+                        Log.d("DailyWeatherLog", "----------------------")
+                    }
+                } else {
+                    Log.d("DailyWeatherLog", "No daily weather data available.")
+                }
+            } catch (e: Exception) {
+                Log.e("DailyWeatherLog", "Error fetching daily weather data", e)
+            }
+        }
+    }
+
+    fun insertHourlyWeather(database: WeatherDatabase, hourly: Hourly, currentTime: String) {
+        executor.execute {
+            try {
+                Log.d("WeatherApp", "insertHourlyWeather is running on thread: ${Thread.currentThread().name}")
+                val weatherDao = database.weatherDao()
+
+                // Clear existing entries
+                weatherDao.clearHourlyWeather()
+                Log.d("WeatherApp", "Hourly weather table cleared")
+
+                // Prepare and filter data for the next 24 hours
+                val currentDateTime = LocalDateTime.parse(currentTime)
+                val hourlyDataForNext24Hours = hourly.time.zip(hourly.temperature.zip(hourly.weatherCode.zip(hourly.isDay))) { time, triple ->
+                    val (temperature, pair) = triple
+                    val (weatherCode, isDay) = pair
+                    HourlyData(time, temperature, weatherCode, isDay)
+                }.filter { data ->
+                    LocalDateTime.parse(data.time).isAfter(currentDateTime)
+                }.take(24) // Take the next 24 hours
+
+                // Convert filtered data to entities and insert into database
+                val entities = hourlyDataForNext24Hours.map { data ->
+                    HourlyWeatherEntity(
+                        time = data.time,
+                        temperature = data.temperature,
+                        weatherCode = data.weatherCode,
+                        isDay = data.isDay
+                    )
+                }
+                weatherDao.insertHourlyWeather(entities)
+                Log.d("WeatherApp", "insertHourlyWeather: Insertion successful")
+            } catch (e: Exception) {
+                Log.e("WeatherApp", "insertHourlyWeather: Insertion failed", e)
+            }
+        }
+    }
+
+    fun logHourlyWeather(database: WeatherDatabase) {
+        executor.execute {
+            try {
+                val weatherDao = database.weatherDao()
+                val hourlyWeatherList = weatherDao.getHourlyWeather()
+                if (hourlyWeatherList.isNotEmpty()) {
+                    Log.d("HourlyWeatherLog", "Hourly Weather Data:")
+                    hourlyWeatherList.forEach { hourlyWeather ->
+                        Log.d("HourlyWeatherLog", "Time: ${hourlyWeather.time}")
+                        Log.d("HourlyWeatherLog", "Temperature: ${hourlyWeather.temperature}")
+                        Log.d("HourlyWeatherLog", "Weather Code: ${hourlyWeather.weatherCode}")
+                        Log.d("HourlyWeatherLog", "Is Day: ${hourlyWeather.isDay}")
+                        Log.d("HourlyWeatherLog", "----------------------")
+                    }
+                } else {
+                    Log.d("HourlyWeatherLog", "No hourly weather data available.")
+                }
+            } catch (e: Exception) {
+                Log.e("HourlyWeatherLog", "Error fetching hourly weather data", e)
+            }
+        }
+    }
+
 }
