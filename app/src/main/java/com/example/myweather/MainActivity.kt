@@ -1,8 +1,6 @@
 package com.example.myweather
 
 import android.Manifest
-import android.app.Activity
-import android.content.ContentValues
 import android.content.Context
 import android.content.pm.PackageManager
 import android.content.res.Resources
@@ -10,7 +8,6 @@ import android.graphics.Rect
 import android.location.Location
 import android.location.LocationListener
 import android.location.LocationManager
-import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -18,18 +15,14 @@ import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
 import android.util.TypedValue
-import android.view.LayoutInflater
 import android.view.View
-import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.recyclerview.widget.RecyclerView
 import com.google.gson.Gson
-import com.google.gson.annotations.SerializedName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -37,291 +30,20 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import retrofit2.*
 import retrofit2.converter.gson.GsonConverterFactory
-import retrofit2.http.GET
-import retrofit2.http.Query
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
-import androidx.room.Entity
-import androidx.room.PrimaryKey
-import androidx.room.*
-import androidx.room.Database
-import androidx.room.Room
-import androidx.room.RoomDatabase
-import androidx.room.Query as RoomQuery
 import java.util.concurrent.Executors
-
-@Entity(tableName = "current_weather")
-data class CurrentWeatherEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val time: String,
-    val temperature: Double,
-    val humidity: Int,
-    val apparentTemperature: Double,
-    val isDay: Int,
-    val weatherCode: Int,
-    val windSpeed: Double
-)
-
-@Entity(tableName = "hourly_weather")
-data class HourlyWeatherEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val time: String,
-    val temperature: Double,
-    val weatherCode: Int,
-    val isDay: Int
-)
-
-@Entity(tableName = "daily_weather")
-data class DailyWeatherEntity(
-    @PrimaryKey(autoGenerate = true) val id: Int = 0,
-    val date: String,
-    val weatherCode: Int,
-    val maxTemperature: Double,
-    val minTemperature: Double,
-    val sunrise: String,
-    val sunset: String,
-    val precipitationProbability: Int
-)
-
-@Dao
-interface WeatherDao {
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertCurrentWeather(weather: CurrentWeatherEntity)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertHourlyWeather(weather: List<HourlyWeatherEntity>)
-
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertDailyWeather(weather: List<DailyWeatherEntity>)
-
-    @RoomQuery("SELECT * FROM current_weather")
-    fun getCurrentWeather(): CurrentWeatherEntity?
-
-    @RoomQuery("DELETE FROM current_weather")
-    fun clearCurrentWeather()
-
-    @RoomQuery("SELECT * FROM hourly_weather")
-    fun getHourlyWeather(): List<HourlyWeatherEntity>
-
-    @RoomQuery("DELETE FROM hourly_weather")
-    fun clearHourlyWeather()
-
-    @RoomQuery("SELECT * FROM daily_weather")
-    fun getDailyWeather(): List<DailyWeatherEntity>
-
-    @RoomQuery("DELETE FROM daily_weather")
-    fun clearDailyWeather()
-}
-
-@Database(
-    entities = [CurrentWeatherEntity::class, HourlyWeatherEntity::class, DailyWeatherEntity::class],
-    version = 1,
-    exportSchema = false
-)
-abstract class WeatherDatabase : RoomDatabase() {
-    abstract fun weatherDao(): WeatherDao
-
-    companion object {
-        @Volatile
-        private var INSTANCE: WeatherDatabase? = null
-
-        fun getDatabase(context: Context): WeatherDatabase {
-            return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
-                    context.applicationContext,
-                    WeatherDatabase::class.java,
-                    "weather.db"
-                ).fallbackToDestructiveMigration().build()
-                INSTANCE = instance
-                instance
-            }
-        }
-    }
-}
-
-interface LocationIQService {
-    @GET("v1/autocomplete.php")
-    fun getAutocomplete(
-        @Query("key") apiKey: String,
-        @Query("q") query: String,
-        @Query("format") format: String = "json"
-    ): Call<List<LocationResponse>>
-}
-
-data class LocationResponse(
-    @SerializedName("place_id") val placeId: String,
-    @SerializedName("lat") val latitude: String,
-    @SerializedName("lon") val longitude: String,
-    @SerializedName("display_name") val displayName: String
-)
-
-interface WeatherService {
-    @GET("v1/forecast")
-    fun getCurrentWeather(
-        @Query("latitude") latitude: Double,
-        @Query("longitude") longitude: Double,
-        @Query("current") current: String,
-        @Query("hourly") hourly: String,
-        @Query("daily") daily: String,
-        @Query("timezone") timezone: String = "auto"
-    ): Call<WeatherResponse>
-}
-
-data class WeatherResponse(
-    @SerializedName("current") val current: Current,
-    @SerializedName("hourly") val hourly: Hourly,
-    @SerializedName("daily") val daily: Daily
-)
-
-data class Current(
-    @SerializedName("time") val time: String,
-    @SerializedName("temperature_2m") val temperature: Double,
-    @SerializedName("relative_humidity_2m") val humidity: Int,
-    @SerializedName("apparent_temperature") val apparentTemperature: Double,
-    @SerializedName("is_day") val isDay: Int,
-    @SerializedName("weather_code") val weatherCode: Int,
-    @SerializedName("wind_speed_10m") val windSpeed: Double
-)
-
-data class Hourly(
-    @SerializedName("time") val time: List<String>,
-    @SerializedName("temperature_2m") val temperature: List<Double>,
-    @SerializedName("weather_code") val weatherCode: List<Int>,
-    @SerializedName("is_day") val isDay: List<Int>
-)
-
-data class Daily(
-    @SerializedName("time") val time: List<String>,
-    @SerializedName("weather_code") val weatherCode: List<Int>,
-    @SerializedName("temperature_2m_max") val temperatureMax: List<Double>,
-    @SerializedName("temperature_2m_min") val temperatureMin: List<Double>,
-    @SerializedName("sunrise") val sunrise: List<String>,
-    @SerializedName("sunset") val sunset: List<String>,
-    @SerializedName("precipitation_probability_max") val precipitationProbabilityMax: List<Int>
-)
-
-interface AddressNameService {
-    @GET("reverse")
-    //https://geocode.maps.co/reverse
-    fun getAddressName(
-        @Query("lat") latitude: Double,
-        @Query("lon") longitude: Double,
-        @Query("key") apiKey: String
-    ): Call<AddressNameResponse>
-}
-
-data class AddressNameResponse(
-    @SerializedName("address") val address: Address
-)
-
-data class Address(
-    @SerializedName("hamlet") val hamlet: String? = null,
-    @SerializedName("village") val village: String? = null,
-    @SerializedName("city") val city: String? = null,
-    @SerializedName("town") val town: String? = null,
-    @SerializedName("county") val county: String?= null,
-    @SerializedName("suburb") val suburb: String?= null,
-    @SerializedName("region") val region: String?= null,
-    @SerializedName("state_district") val stateDistrict: String?= null,
-    @SerializedName("country") val country: String?= null,
-    @SerializedName("country_code") val countryCode: String? = null
-)
-
-class TemperatureAdapter(private val hourlyData: List<HourlyData>) : RecyclerView.Adapter<TemperatureAdapter.ViewHolder>() {
-
-    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
-        val timeTextView: TextView = view.findViewById(R.id.textViewItemTime)
-        val weatherImageView: ImageView = view.findViewById(R.id.imageViewItemWeather)
-        val temperatureTextView: TextView = view.findViewById(R.id.textViewItemTemperature)
-    }
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context).inflate(R.layout.item_temperature, parent, false)
-        return ViewHolder(view)
-    }
-
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        val data = hourlyData[position]
-        // Parse the time string to LocalDateTime
-        val dateTime = LocalDateTime.parse(data.time)
-        // Format the time part
-        val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-        val formattedTime = dateTime.format(timeFormatter)
-        // Set the formatted time to the TextView
-        holder.timeTextView.text = formattedTime
-
-        holder.temperatureTextView.text = "${data.temperature}°C"
-
-        val weatherIconResId = getWeatherIcon(weatherCode = data.weatherCode, isDay = data.isDay)
-        holder.weatherImageView.setImageResource(weatherIconResId)
-    }
-
-    override fun getItemCount() = hourlyData.size
-
-    private fun getWeatherIcon(weatherCode: Int, isDay:Int): Int {
-        return when (weatherCode) {
-            0 -> if (isDay==1) R.drawable.clear1 else R.drawable.clear0
-            1 -> if (isDay==1) R.drawable.mc_cloudy1 else R.drawable.mc_cloudy0
-            2 -> if (isDay==1) R.drawable.mc_cloudy1 else R.drawable.mc_cloudy0
-            3 -> if (isDay==1) R.drawable.mc_cloudy1 else R.drawable.mc_cloudy0
-            45 -> R.drawable.fog
-            48 -> R.drawable.fog
-            51 -> R.drawable.mc_cloudy
-            53 -> R.drawable.mc_cloudy
-            55 -> R.drawable.mc_cloudy
-            56 -> R.drawable.mc_cloudy
-            57 -> R.drawable.mc_cloudy
-            61 -> R.drawable.rain
-            63 -> R.drawable.rain
-            65 -> R.drawable.rain
-            66 -> R.drawable.sleet
-            67 -> R.drawable.sleet
-            71 -> R.drawable.l_snow
-            73 -> R.drawable.l_snow
-            75 -> R.drawable.l_snow
-            77 -> R.drawable.hail
-            80 -> if (isDay==1) R.drawable.shower1 else R.drawable.shower0
-            81 -> if (isDay==1) R.drawable.shower1 else R.drawable.shower0
-            82 -> if (isDay==1) R.drawable.shower1 else R.drawable.shower0
-            85 -> if (isDay==1) R.drawable.l_snow1 else R.drawable.l_snow0
-            86 -> if (isDay==1) R.drawable.l_snow1 else R.drawable.l_snow0
-            95 -> R.drawable.tstorm
-            96 -> R.drawable.tshower
-            99 -> R.drawable.tshower
-            else -> R.drawable.unknown
-        }
-    }
-}
-
-data class HourlyData(
-    val time: String,
-    val temperature: Double,
-    val weatherCode: Int,
-    val isDay: Int
-)
+import com.example.myweather.data.db.WeatherDatabase
+import com.example.myweather.databinding.ActivityMainBinding
+import com.example.myweather.data.network.services.*
+import com.example.myweather.data.network.responses.*
+import com.example.myweather.data.db.entities.*
 
 class MainActivity : AppCompatActivity() {
-
-    private lateinit var editTextLocation: EditText
-    private lateinit var listViewLocations: ListView
-    private lateinit var textViewTemperature: TextView
-    private lateinit var textViewWindSpeed: TextView
-    private lateinit var useLocationStatusButton: Button
-    private lateinit var textViewHumidity: TextView
-    private lateinit var textViewFeelsLike: TextView
-    private lateinit var progressBar: ProgressBar
-    private lateinit var imageViewWeather: ImageView
-    private lateinit var textViewCityName: TextView
-    private lateinit var textViewTime: TextView
-    private lateinit var secondLayout: LinearLayout
-    private lateinit var recyclerViewTemperatures: RecyclerView
-    private lateinit var sunRiseTextView: TextView
-    private lateinit var sunSetTextView: TextView
-    private lateinit var thirdLayout: LinearLayout
-    private lateinit var dailyWeatherLayout: LinearLayout
+    private lateinit var binding: ActivityMainBinding
 
     private lateinit var locationManager: LocationManager
     private val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -335,30 +57,14 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        setContentView(R.layout.activity_main)
+        binding = ActivityMainBinding.inflate(layoutInflater)
+        setContentView(binding.root)
 
-        editTextLocation = findViewById(R.id.editTextLocation)
-        listViewLocations = findViewById(R.id.listViewLocations)
-        textViewTemperature = findViewById(R.id.textViewTemperature)
-        textViewWindSpeed = findViewById(R.id.textViewWindSpeed)
-        useLocationStatusButton = findViewById(R.id.useLocationStatusButton)
-        progressBar = findViewById(R.id.progressBar)
-        textViewHumidity = findViewById(R.id.textViewHumidity)
-        textViewFeelsLike = findViewById(R.id.textViewFeelsLike)
-        imageViewWeather = findViewById(R.id.imageViewWeather)
-        textViewCityName = findViewById(R.id.textViewCityName)
-        textViewTime = findViewById(R.id.textViewTime)
-        secondLayout = findViewById(R.id.secondLayout)
-        sunRiseTextView = findViewById(R.id.sunRiseTextView)
-        sunSetTextView = findViewById(R.id.sunSetTextView)
-        thirdLayout = findViewById(R.id.thirdLayout)
-        dailyWeatherLayout = findViewById(R.id.dailyWeatherLayout)
 
-        recyclerViewTemperatures = findViewById(R.id.recyclerViewTemperatures)
-        recyclerViewTemperatures.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        binding.recyclerViewTemperatures.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         // Initialize recyclerViewTemperatures with an empty list
         var temperatureAdapter = TemperatureAdapter(listOf())
-        recyclerViewTemperatures.adapter = temperatureAdapter
+        binding.recyclerViewTemperatures.adapter = temperatureAdapter
 
         //Set the status and navigation bar colors to Clear Day Blue on load
         window.statusBarColor = ContextCompat.getColor(this, R.color.Clear_Day_Blue)
@@ -397,7 +103,7 @@ class MainActivity : AppCompatActivity() {
         }
         checkLocationAndFetchData()
 
-        useLocationStatusButton.setOnClickListener {
+        binding.useLocationStatusButton.setOnClickListener {
             showLoading(isLoading = true)
             if(isLocationEnabled()){
                 if (isLocationPermissionGranted()) {
@@ -419,10 +125,10 @@ class MainActivity : AppCompatActivity() {
                 Toast.makeText(this@MainActivity, "Location disabled", Toast.LENGTH_SHORT).show()
                 showLoading(isLoading = false)
             }
-            editTextLocation.clearFocus()
+            binding.editTextLocation.clearFocus()
         }
 
-        editTextLocation.addTextChangedListener(object : TextWatcher {
+        binding.editTextLocation.addTextChangedListener(object : TextWatcher {
             private var debounceJob: Job? = null
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -444,15 +150,15 @@ class MainActivity : AppCompatActivity() {
                                         android.R.layout.simple_list_item_1,
                                         locations.map { it.displayName }
                                     )
-                                    listViewLocations.adapter = adapter
+                                    binding.listViewLocations.adapter = adapter
                                     hideMain()
-                                    listViewLocations.visibility = View.VISIBLE
-                                    listViewLocations.setOnItemClickListener { _, _, position, _ ->
+                                    binding.listViewLocations.visibility = View.VISIBLE
+                                    binding.listViewLocations.setOnItemClickListener { _, _, position, _ ->
                                         val selectedLocation = locations[position]
                                         fetchWeatherData(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble())
                                         fetchAndDisplayCityName(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble())
                                         hideKeyboardAndListView()
-                                        editTextLocation.setText("")
+                                        binding.editTextLocation.setText("")
                                         showMain()
                                     }
                                 }
@@ -463,8 +169,8 @@ class MainActivity : AppCompatActivity() {
                             }
                         })
                     } else {
-                        editTextLocation.clearFocus()
-                        useLocationStatusButton.visibility = View.VISIBLE
+                        binding.editTextLocation.clearFocus()
+                        binding.useLocationStatusButton.visibility = View.VISIBLE
                         hideKeyboardAndListView()
                         showMain()
                     }
@@ -472,11 +178,10 @@ class MainActivity : AppCompatActivity() {
             }
         })
 
-        //End of onCreate function
     }
 
     override fun onBackPressed() {
-        if (isKeyboardVisible || listViewLocations.visibility == View.VISIBLE) {
+        if (isKeyboardVisible || binding.listViewLocations.visibility == View.VISIBLE) {
             // Dismiss the keyboard and list view
             hideKeyboardAndListView()
         } else {
@@ -490,7 +195,7 @@ class MainActivity : AppCompatActivity() {
                 super.onBackPressed()
             }
         }
-        editTextLocation.clearFocus()
+        binding.editTextLocation.clearFocus()
         showMain()
     }
 
@@ -550,7 +255,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showLoading(isLoading: Boolean) {
-        progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
+        binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
     }
 
     private fun formattedDateTime(dateTimeString: String):String {
@@ -585,13 +290,13 @@ class MainActivity : AppCompatActivity() {
                     val weather = response.body()
                     weather?.let {
 
-                        textViewTemperature.text = "${it.current.temperature} °C"
-                        textViewHumidity.text = "${it.current.humidity} %"
-                        textViewWindSpeed.text = "${it.current.windSpeed} km/h"
-                        textViewFeelsLike.text = "${it.current.apparentTemperature} °C"
+                        binding.textViewTemperature.text = "${it.current.temperature} °C"
+                        binding.textViewHumidity.text = "${it.current.humidity} %"
+                        binding.textViewWindSpeed.text = "${it.current.windSpeed} km/h"
+                        binding.textViewFeelsLike.text = "${it.current.apparentTemperature} °C"
                         val weatherIconResId = getWeatherIcon(weatherCode = it.current.weatherCode, isDay = it.current.isDay)
-                        imageViewWeather.setImageResource(weatherIconResId)
-                        textViewTime.text = formattedDateTime(it.current.time)
+                        binding.imageViewWeather.setImageResource(weatherIconResId)
+                        binding.textViewTime.text = formattedDateTime(it.current.time)
 
                         changeTheme(it.current.weatherCode,it.current.isDay)
 
@@ -604,24 +309,24 @@ class MainActivity : AppCompatActivity() {
                             LocalDateTime.parse(data.time).isAfter(currentTime)
                         }.take(24) // Take the 24 hours after the current time
                         var temperatureAdapter = TemperatureAdapter(hourlyData)
-                        recyclerViewTemperatures.adapter = temperatureAdapter
-                        recyclerViewTemperatures.visibility = View.VISIBLE
+                        binding.recyclerViewTemperatures.adapter = temperatureAdapter
+                        binding.recyclerViewTemperatures.visibility = View.VISIBLE
 
-                        sunRiseTextView.text= it.daily.sunrise[0].split('T')[1]
-                        sunSetTextView.text= it.daily.sunset[0].split('T')[1]
+                        binding.sunRiseTextView.text= it.daily.sunrise[0].split('T')[1]
+                        binding.sunSetTextView.text= it.daily.sunset[0].split('T')[1]
 
                         // Clear the container to remove previous data
-                        dailyWeatherLayout.removeAllViews()
+                        binding.dailyWeatherLayout.removeAllViews()
                         for (i in it.daily.time.indices) {
                             addWeatherData(
-                                dailyWeatherLayout,
+                                binding.dailyWeatherLayout,
                                 it.daily.time[i],
                                 it.daily.precipitationProbabilityMax[i],
                                 it.daily.temperatureMax[i],
                                 it.daily.temperatureMin[i]
                             )
                         }
-                        dailyWeatherLayout.visibility=View.VISIBLE
+                        binding.dailyWeatherLayout.visibility=View.VISIBLE
 
                         val database = WeatherDatabase.getDatabase(this@MainActivity)
                         //this@MainActivity.deleteDatabase("weather.db")
@@ -639,23 +344,22 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             override fun onFailure(call: Call<WeatherResponse>, t: Throwable) {
-                textViewTemperature.text = "--°C"
-                textViewHumidity.text = "--%"
-                textViewWindSpeed.text = "--km/h"
-                textViewFeelsLike.text = "--°C"
-                imageViewWeather.setImageResource(getWeatherIcon(weatherCode = -1, isDay = -1))
-                textViewTime.text = ""
-                recyclerViewTemperatures.visibility = View.GONE
-                dailyWeatherLayout.visibility=View.GONE
-                sunRiseTextView.text= "-"
-                sunSetTextView.text= "-"
+                binding.textViewTemperature.text = "--°C"
+                binding.textViewHumidity.text = "--%"
+                binding.textViewWindSpeed.text = "--km/h"
+                binding.textViewFeelsLike.text = "--°C"
+                binding.imageViewWeather.setImageResource(getWeatherIcon(weatherCode = -1, isDay = -1))
+                binding.textViewTime.text = ""
+                binding.recyclerViewTemperatures.visibility = View.GONE
+                binding.dailyWeatherLayout.visibility=View.GONE
+                binding.sunRiseTextView.text= "-"
+                binding.sunSetTextView.text= "-"
             }
         })
         showLoading(isLoading = false)
         // Dismiss the keyboard
         hideKeyboardAndListView()
     }
-
 
     private fun deleteDatabase() {
         val databaseName = "weather.db"
@@ -668,7 +372,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fetchAndDisplayCityName(latitude: Double, longitude: Double){
-        textViewCityName.text = ""
+        binding.textViewCityName.text = ""
         val addressRetrofit = Retrofit.Builder()
             .baseUrl("https://geocode.maps.co/")
             .addConverterFactory(GsonConverterFactory.create())
@@ -683,7 +387,7 @@ class MainActivity : AppCompatActivity() {
                     val res = response.body()
                     res?.let {
                         val address = it.address
-                        textViewCityName.text = when {
+                        binding.textViewCityName.text = when {
                             address.village != null && address.county !=null -> "${address.village},\n${address.county}"
                             address.village != null -> address.village
                             address.town != null && address.county !=null -> "${address.town},\n${address.county}"
@@ -702,7 +406,7 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             override fun onFailure(call: Call<AddressNameResponse>, t: Throwable) {
-                textViewCityName.text = "Failed to load data"
+                binding.textViewCityName.text = "Failed to load data"
             }
         })
         hideKeyboardAndListView()
@@ -711,41 +415,41 @@ class MainActivity : AppCompatActivity() {
     private fun hideKeyboardAndListView() {
         // Hide the keyboard
         val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        imm.hideSoftInputFromWindow(editTextLocation.windowToken, 0)
+        imm.hideSoftInputFromWindow(binding.editTextLocation.windowToken, 0)
         // Hide the list view
-        listViewLocations.visibility = View.GONE
+        binding.listViewLocations.visibility = View.GONE
         // Clear the adapter to ensure no residual data
-        listViewLocations.adapter = null
+        binding.listViewLocations.adapter = null
     }
 
     private fun hideMain(){
-        useLocationStatusButton.visibility = View.GONE
-        textViewTemperature.visibility = View.GONE
-        textViewWindSpeed.visibility = View.GONE
-        textViewHumidity.visibility = View.GONE
-        textViewFeelsLike.visibility = View.GONE
-        imageViewWeather.visibility = View.GONE
-        textViewCityName.visibility = View.GONE
-        secondLayout.visibility = View.GONE
-        recyclerViewTemperatures.visibility = View.GONE
-        textViewTime.visibility = View.GONE
-        thirdLayout.visibility = View.GONE
-        dailyWeatherLayout.visibility = View.GONE
+        binding.useLocationStatusButton.visibility = View.GONE
+        binding.textViewTemperature.visibility = View.GONE
+        binding.textViewWindSpeed.visibility = View.GONE
+        binding.textViewHumidity.visibility = View.GONE
+        binding.textViewFeelsLike.visibility = View.GONE
+        binding.imageViewWeather.visibility = View.GONE
+        binding.textViewCityName.visibility = View.GONE
+        binding.secondLayout.visibility = View.GONE
+        binding.recyclerViewTemperatures.visibility = View.GONE
+        binding.textViewTime.visibility = View.GONE
+        binding.thirdLayout.visibility = View.GONE
+        binding.dailyWeatherLayout.visibility = View.GONE
     }
 
     private fun showMain(){
-        useLocationStatusButton.visibility = View.VISIBLE
-        textViewTemperature.visibility = View.VISIBLE
-        textViewWindSpeed.visibility = View.VISIBLE
-        textViewHumidity.visibility = View.VISIBLE
-        textViewFeelsLike.visibility = View.VISIBLE
-        imageViewWeather.visibility = View.VISIBLE
-        textViewCityName.visibility = View.VISIBLE
-        secondLayout.visibility = View.VISIBLE
-        recyclerViewTemperatures.visibility = View.VISIBLE
-        textViewTime.visibility = View.VISIBLE
-        thirdLayout.visibility = View.VISIBLE
-        dailyWeatherLayout.visibility = View.VISIBLE
+        binding.useLocationStatusButton.visibility = View.VISIBLE
+        binding.textViewTemperature.visibility = View.VISIBLE
+        binding.textViewWindSpeed.visibility = View.VISIBLE
+        binding.textViewHumidity.visibility = View.VISIBLE
+        binding.textViewFeelsLike.visibility = View.VISIBLE
+        binding.imageViewWeather.visibility = View.VISIBLE
+        binding.textViewCityName.visibility = View.VISIBLE
+        binding.secondLayout.visibility = View.VISIBLE
+        binding.recyclerViewTemperatures.visibility = View.VISIBLE
+        binding.textViewTime.visibility = View.VISIBLE
+        binding.thirdLayout.visibility = View.VISIBLE
+        binding.dailyWeatherLayout.visibility = View.VISIBLE
     }
 
     fun getWeatherIcon(weatherCode: Int, isDay:Int): Int {
@@ -939,13 +643,13 @@ class MainActivity : AppCompatActivity() {
 
         // Display the data if it's not null
         currentWeather?.let {
-            textViewTemperature.text = "${it.temperature} °C"
-            textViewHumidity.text = "${it.humidity} %"
-            textViewWindSpeed.text = "${it.windSpeed} km/h"
-            textViewFeelsLike.text = "${it.apparentTemperature} °C"
+            binding.textViewTemperature.text = "${it.temperature} °C"
+            binding.textViewHumidity.text = "${it.humidity} %"
+            binding.textViewWindSpeed.text = "${it.windSpeed} km/h"
+            binding.textViewFeelsLike.text = "${it.apparentTemperature} °C"
             val weatherIconResId = getWeatherIcon(weatherCode = it.weatherCode, isDay = it.isDay)
-            imageViewWeather.setImageResource(weatherIconResId)
-            textViewTime.text = formattedDateTime(it.time)
+            binding.imageViewWeather.setImageResource(weatherIconResId)
+            binding.textViewTime.text = formattedDateTime(it.time)
 
             changeTheme(it.weatherCode, it.isDay)
         }
@@ -961,25 +665,25 @@ class MainActivity : AppCompatActivity() {
                 LocalDateTime.parse(data.time).isAfter(currentTime)
             }.take(24) // Take the 24 hours after the current time
             val temperatureAdapter = TemperatureAdapter(hourlyData)
-            recyclerViewTemperatures.adapter = temperatureAdapter
-            recyclerViewTemperatures.visibility = View.VISIBLE
+            binding.recyclerViewTemperatures.adapter = temperatureAdapter
+            binding.recyclerViewTemperatures.visibility = View.VISIBLE
         }
 
         dailyWeather?.let {
-            sunRiseTextView.text = it.sunrise[0].split('T')[1]
-            sunSetTextView.text = it.sunset[0].split('T')[1]
+            binding.sunRiseTextView.text = it.sunrise[0].split('T')[1]
+            binding.sunSetTextView.text = it.sunset[0].split('T')[1]
 
-            dailyWeatherLayout.removeAllViews()
+            binding.dailyWeatherLayout.removeAllViews()
             for (i in it.time.indices) {
                 addWeatherData(
-                    dailyWeatherLayout,
+                    binding.dailyWeatherLayout,
                     it.time[i],
                     it.precipitationProbabilityMax[i],
                     it.temperatureMax[i],
                     it.temperatureMin[i]
                 )
             }
-            dailyWeatherLayout.visibility = View.VISIBLE
+            binding.dailyWeatherLayout.visibility = View.VISIBLE
         }
     }
 
