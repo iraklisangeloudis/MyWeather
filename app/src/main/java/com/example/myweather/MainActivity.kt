@@ -28,22 +28,23 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import retrofit2.*
-import retrofit2.converter.gson.GsonConverterFactory
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
-import java.util.concurrent.Executors
 import com.example.myweather.data.db.WeatherDatabase
 import com.example.myweather.databinding.ActivityMainBinding
-import com.example.myweather.data.network.services.*
 import com.example.myweather.data.network.responses.*
-import com.example.myweather.data.db.entities.*
+import com.example.myweather.data.repositories.*
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
+
+    private lateinit var databaseRepository: DatabaseRepository
+    private lateinit var cityNameRepository: CityNameRepository
+    private lateinit var weatherRepository: WeatherRepository
+    private lateinit var locationRepository: LocationRepository
 
     private lateinit var locationManager: LocationManager
     private val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -60,6 +61,10 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
+        // Initialize repositories
+        cityNameRepository = CityNameRepository()
+        weatherRepository = WeatherRepository()
+        locationRepository = LocationRepository()
 
         binding.recyclerViewTemperatures.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         // Initialize recyclerViewTemperatures with an empty list
@@ -72,14 +77,6 @@ class MainActivity : AppCompatActivity() {
 
         //Request permission to use location the first time the app is downloaded
         requestLocationPermission()
-
-        //Retrofit set up for http requests
-        val locationIQRetrofit = Retrofit.Builder()
-            .baseUrl("https://us1.locationiq.com/")
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-
-        val locationIQService = locationIQRetrofit.create(LocationIQService::class.java)
 
         // Listener to detect keyboard visibility
         val rootView = findViewById<View>(android.R.id.content)
@@ -104,27 +101,7 @@ class MainActivity : AppCompatActivity() {
         checkLocationAndFetchData()
 
         binding.useLocationStatusButton.setOnClickListener {
-            showLoading(isLoading = true)
-            if(isLocationEnabled()){
-                if (isLocationPermissionGranted()) {
-                    getLocation { latitude, longitude ->
-                        if (latitude != null && longitude != null) {
-                            fetchWeatherData(latitude,longitude)
-                            fetchAndDisplayCityName(latitude,longitude)
-                        } else {
-                            Toast.makeText(this@MainActivity, "Unable to get location", Toast.LENGTH_SHORT).show()
-                            showLoading(isLoading = false)
-                        }
-                    }
-                } else {
-                    Toast.makeText(this@MainActivity, "Location permission not granted", Toast.LENGTH_SHORT).show()
-                    showLoading(isLoading = false)
-                }
-            }
-            else{
-                Toast.makeText(this@MainActivity, "Location disabled", Toast.LENGTH_SHORT).show()
-                showLoading(isLoading = false)
-            }
+            checkLocationAndFetchData()
             binding.editTextLocation.clearFocus()
         }
 
@@ -138,39 +115,33 @@ class MainActivity : AppCompatActivity() {
             override fun afterTextChanged(s: Editable?) {
                 debounceJob?.cancel()
                 debounceJob = CoroutineScope(Dispatchers.Main).launch {
-                    delay(800) // debounce delay
+                    delay(1000) // debounce delay
                     val query = s.toString()
                     if (query.isNotEmpty()) {
-                        locationIQService.getAutocomplete(locationIQApiKey, query).enqueue(object : Callback<List<LocationResponse>> {
-                            override fun onResponse(call: Call<List<LocationResponse>>, response: Response<List<LocationResponse>>) {
-                                if (response.isSuccessful) {
-                                    val locations = response.body() ?: emptyList()
-                                    val adapter = ArrayAdapter(
-                                        this@MainActivity,
-                                        android.R.layout.simple_list_item_1,
-                                        locations.map { it.displayName }
-                                    )
-                                    binding.listViewLocations.adapter = adapter
-                                    hideMain()
-                                    binding.listViewLocations.visibility = View.VISIBLE
-                                    binding.listViewLocations.setOnItemClickListener { _, _, position, _ ->
-                                        val selectedLocation = locations[position]
-                                        fetchWeatherData(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble())
-                                        fetchAndDisplayCityName(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble())
-                                        hideKeyboardAndListView()
-                                        binding.editTextLocation.setText("")
-                                        showMain()
-                                    }
+                        locationRepository.getAutocomplete(query, locationIQApiKey) { locations ->
+                            locations?.let {
+                                val adapter = ArrayAdapter(
+                                    this@MainActivity,
+                                    android.R.layout.simple_list_item_1,
+                                    it.map { location -> location.displayName }
+                                )
+                                binding.listViewLocations.adapter = adapter
+                                hideMain()
+                                binding.listViewLocations.visibility = View.VISIBLE
+                                binding.listViewLocations.setOnItemClickListener { _, _, position, _ ->
+                                    val selectedLocation = it[position]
+                                    fetchWeatherData(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble())
+                                    fetchAndDisplayCityName(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble())
+                                    hideKeyboardAndListView()
+                                    binding.editTextLocation.setText("")
+                                    showMain()
                                 }
-                            }
-
-                            override fun onFailure(call: Call<List<LocationResponse>>, t: Throwable) {
+                            } ?: run {
                                 Toast.makeText(this@MainActivity, "Failed to load location data", Toast.LENGTH_SHORT).show()
                             }
-                        })
+                        }
                     } else {
                         binding.editTextLocation.clearFocus()
-                        binding.useLocationStatusButton.visibility = View.VISIBLE
                         hideKeyboardAndListView()
                         showMain()
                     }
@@ -276,139 +247,26 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun fetchWeatherData(latitude: Double, longitude: Double) {
-        val weatherRetrofit = Retrofit.Builder()
-            .baseUrl("https://api.open-meteo.com/")
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-
-        val weatherService = weatherRetrofit.create(WeatherService::class.java)
-
-
-        weatherService.getCurrentWeather(latitude, longitude, "temperature_2m,relative_humidity_2m,apparent_temperature,is_day,weather_code,wind_speed_10m", "temperature_2m,weather_code,is_day","weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max").enqueue(object : Callback<WeatherResponse> {
-            override fun onResponse(call: Call<WeatherResponse>, response: Response<WeatherResponse>) {
-                if (response.isSuccessful) {
-                    val weather = response.body()
-                    weather?.let {
-
-                        binding.textViewTemperature.text = "${it.current.temperature} °C"
-                        binding.textViewHumidity.text = "${it.current.humidity} %"
-                        binding.textViewWindSpeed.text = "${it.current.windSpeed} km/h"
-                        binding.textViewFeelsLike.text = "${it.current.apparentTemperature} °C"
-                        val weatherIconResId = getWeatherIcon(weatherCode = it.current.weatherCode, isDay = it.current.isDay)
-                        binding.imageViewWeather.setImageResource(weatherIconResId)
-                        binding.textViewTime.text = formattedDateTime(it.current.time)
-
-                        changeTheme(it.current.weatherCode,it.current.isDay)
-
-                        val currentTime = LocalDateTime.parse(it.current.time) // Parse the current time
-                        val hourlyData = it.hourly.time.zip(it.hourly.temperature.zip(it.hourly.weatherCode.zip(it.hourly.isDay))) { time, triple ->
-                            val (temperature, pair) = triple
-                            val (weatherCode, isDay) = pair
-                            HourlyData(time, temperature, weatherCode, isDay)
-                        }.filter { data ->
-                            LocalDateTime.parse(data.time).isAfter(currentTime)
-                        }.take(24) // Take the 24 hours after the current time
-                        var temperatureAdapter = TemperatureAdapter(hourlyData)
-                        binding.recyclerViewTemperatures.adapter = temperatureAdapter
-                        binding.recyclerViewTemperatures.visibility = View.VISIBLE
-
-                        binding.sunRiseTextView.text= it.daily.sunrise[0].split('T')[1]
-                        binding.sunSetTextView.text= it.daily.sunset[0].split('T')[1]
-
-                        // Clear the container to remove previous data
-                        binding.dailyWeatherLayout.removeAllViews()
-                        for (i in it.daily.time.indices) {
-                            addWeatherData(
-                                binding.dailyWeatherLayout,
-                                it.daily.time[i],
-                                it.daily.precipitationProbabilityMax[i],
-                                it.daily.temperatureMax[i],
-                                it.daily.temperatureMin[i]
-                            )
-                        }
-                        binding.dailyWeatherLayout.visibility=View.VISIBLE
-
-                        val database = WeatherDatabase.getDatabase(this@MainActivity)
-                        //this@MainActivity.deleteDatabase("weather.db")
-
-                        insertCurrentWeather(database, it.current)
-                        logCurrentWeather(database)
-                        insertDailyWeather(database, it.daily)
-                        logDailyWeather(database)
-                        insertHourlyWeather(database, it.hourly, it.current.time)
-                        logHourlyWeather(database)
-
-                        // Save data to SharedPreferences
-                        saveWeatherDataToSharedPreferences(it.current, it.hourly, it.daily)
-                    }
-                }
+        weatherRepository.fetchWeatherData(latitude, longitude) { weatherResponse ->
+            weatherResponse?.let {
+                handleWeatherResponse(it)
+            } ?: run {
+                handleWeatherFailure()
             }
-            override fun onFailure(call: Call<WeatherResponse>, t: Throwable) {
-                binding.textViewTemperature.text = "--°C"
-                binding.textViewHumidity.text = "--%"
-                binding.textViewWindSpeed.text = "--km/h"
-                binding.textViewFeelsLike.text = "--°C"
-                binding.imageViewWeather.setImageResource(getWeatherIcon(weatherCode = -1, isDay = -1))
-                binding.textViewTime.text = ""
-                binding.recyclerViewTemperatures.visibility = View.GONE
-                binding.dailyWeatherLayout.visibility=View.GONE
-                binding.sunRiseTextView.text= "-"
-                binding.sunSetTextView.text= "-"
-            }
-        })
-        showLoading(isLoading = false)
-        // Dismiss the keyboard
-        hideKeyboardAndListView()
-    }
-
-    private fun deleteDatabase() {
-        val databaseName = "weather.db"
-        val success = deleteDatabase(databaseName)
-        if (success) {
-            Toast.makeText(this, "Database deleted successfully", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "Failed to delete database", Toast.LENGTH_SHORT).show()
         }
+        showLoading(isLoading = false)
+        hideKeyboardAndListView()
     }
 
     private fun fetchAndDisplayCityName(latitude: Double, longitude: Double){
         binding.textViewCityName.text = ""
-        val addressRetrofit = Retrofit.Builder()
-            .baseUrl("https://geocode.maps.co/")
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-
-        val addressNameService = addressRetrofit.create(AddressNameService::class.java)
-
-        addressNameService.getAddressName(latitude, longitude,reverseGeocodeApiKey).enqueue(object : Callback<AddressNameResponse> {
-
-            override fun onResponse(call: Call<AddressNameResponse>, response: Response<AddressNameResponse>) {
-                if (response.isSuccessful) {
-                    val res = response.body()
-                    res?.let {
-                        val address = it.address
-                        binding.textViewCityName.text = when {
-                            address.village != null && address.county !=null -> "${address.village},\n${address.county}"
-                            address.village != null -> address.village
-                            address.town != null && address.county !=null -> "${address.town},\n${address.county}"
-                            address.town != null -> address.town
-                            address.city != null && address.county !=null -> "${address.city},\n${address.county}"
-                            address.city != null -> address.city
-                            address.county != null -> address.county
-                            address.region != null -> address.region
-                            address.stateDistrict != null -> address.stateDistrict
-                            address.hamlet != null -> address.hamlet
-                            address.suburb != null -> address.suburb
-                            address.country != null -> address.country
-                            else -> ""
-                        }
-                    }
-                }
-            }
-            override fun onFailure(call: Call<AddressNameResponse>, t: Throwable) {
+        cityNameRepository.fetchCityName(latitude, longitude, reverseGeocodeApiKey) { cityName ->
+            cityName?.let {
+                binding.textViewCityName.text = it
+            } ?: run {
                 binding.textViewCityName.text = "Failed to load data"
             }
-        })
+        }
         hideKeyboardAndListView()
     }
 
@@ -737,169 +595,88 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private val executor = Executors.newSingleThreadExecutor()
+    private fun handleWeatherResponse(weather: WeatherResponse) {
+        weather.let {
+            // Update UI
+            updateCurrentWeatherUI(it.current)
+            updateHourlyWeatherUI(it.hourly, it.current.time)
+            updateDailyWeatherUI(it.daily)
 
-    private  fun insertCurrentWeather(database: WeatherDatabase, current: Current) {
-        executor.execute {
-            try {
-                Log.d("WeatherApp", "insertCurrentWeather is running on thread: ${Thread.currentThread().name}")
-                val weatherDao = database.weatherDao()
-                weatherDao.clearCurrentWeather()
-                val entity = CurrentWeatherEntity(
-                    time = current.time,
-                    temperature = current.temperature,
-                    humidity = current.humidity,
-                    apparentTemperature = current.apparentTemperature,
-                    isDay = current.isDay,
-                    weatherCode = current.weatherCode,
-                    windSpeed = current.windSpeed
-                )
-                weatherDao.insertCurrentWeather(entity)
-                Log.d("WeatherApp", "insertCurrentWeather: Insertion successful")
-            } catch (e: Exception) {
-                Log.e("WeatherApp", "insertCurrentWeather: Insertion failed", e)
-            }
+            // Save data to database and SharedPreferences
+            saveWeatherData(it)
         }
     }
 
-    fun logCurrentWeather(database: WeatherDatabase) {
-        executor.execute {
-            try {
-                val weatherDao = database.weatherDao()
-                val currentWeather = weatherDao.getCurrentWeather()
-                if (currentWeather != null) {
-                    Log.d("CurrentWeatherLog", "Current Weather Data:")
-                    Log.d("CurrentWeatherLog", "Time: ${currentWeather.time}")
-                    Log.d("CurrentWeatherLog", "Temperature: ${currentWeather.temperature}")
-                    Log.d("CurrentWeatherLog", "Humidity: ${currentWeather.humidity}")
-                    Log.d("CurrentWeatherLog", "Apparent Temperature: ${currentWeather.apparentTemperature}")
-                    Log.d("CurrentWeatherLog", "Is Day: ${currentWeather.isDay}")
-                    Log.d("CurrentWeatherLog", "Weather Code: ${currentWeather.weatherCode}")
-                    Log.d("CurrentWeatherLog", "Wind Speed: ${currentWeather.windSpeed}")
-                    Log.d("CurrentWeatherLog", "----------------------")
-                } else {
-                    Log.d("CurrentWeatherLog", "No current weather data available.")
-                }
-            } catch (e: Exception) {
-                Log.e("CurrentWeatherLog", "Error fetching current weather data", e)
-            }
-        }
+    private fun updateCurrentWeatherUI(currentWeather: Current) {
+        binding.textViewTemperature.text = "${currentWeather.temperature} °C"
+        binding.textViewHumidity.text = "${currentWeather.humidity} %"
+        binding.textViewWindSpeed.text = "${currentWeather.windSpeed} km/h"
+        binding.textViewFeelsLike.text = "${currentWeather.apparentTemperature} °C"
+
+        val weatherIconResId = getWeatherIcon(currentWeather.weatherCode, currentWeather.isDay)
+        binding.imageViewWeather.setImageResource(weatherIconResId)
+        binding.textViewTime.text = formattedDateTime(currentWeather.time)
+
+        changeTheme(currentWeather.weatherCode, currentWeather.isDay)
     }
 
-    fun insertDailyWeather(database: WeatherDatabase, daily: Daily) {
-        executor.execute {
-            try {
-                Log.d("WeatherApp", "insertDailyWeather is running on thread: ${Thread.currentThread().name}")
-                val weatherDao = database.weatherDao()
+    private fun updateHourlyWeatherUI(hourlyWeather: Hourly, currentTime: String) {
+        val currentDateTime = LocalDateTime.parse(currentTime)
+        val hourlyData = hourlyWeather.time.zip(hourlyWeather.temperature.zip(hourlyWeather.weatherCode.zip(hourlyWeather.isDay))) { time, triple ->
+            val (temperature, pair) = triple
+            val (weatherCode, isDay) = pair
+            HourlyData(time, temperature, weatherCode, isDay)
+        }.filter { data ->
+            LocalDateTime.parse(data.time).isAfter(currentDateTime)
+        }.take(24) // Take the 24 hours after the current time
 
-                // Clear existing entries
-                weatherDao.clearDailyWeather()
-                Log.d("WeatherApp", "Daily weather table cleared")
-
-                // Prepare and insert new entries
-                val entities = daily.time.indices.map { i ->
-                    DailyWeatherEntity(
-                        date = daily.time[i],
-                        weatherCode = daily.weatherCode[i],
-                        maxTemperature = daily.temperatureMax[i],
-                        minTemperature = daily.temperatureMin[i],
-                        sunrise = daily.sunrise[i],
-                        sunset = daily.sunset[i],
-                        precipitationProbability = daily.precipitationProbabilityMax[i]
-                    )
-                }
-                weatherDao.insertDailyWeather(entities)
-                Log.d("WeatherApp", "insertDailyWeather: Insertion successful")
-            } catch (e: Exception) {
-                Log.e("WeatherApp", "insertDailyWeather: Insertion failed", e)
-            }
-        }
+        val temperatureAdapter = TemperatureAdapter(hourlyData)
+        binding.recyclerViewTemperatures.adapter = temperatureAdapter
+        binding.recyclerViewTemperatures.visibility = View.VISIBLE
     }
 
-    fun logDailyWeather(database: WeatherDatabase) {
-        executor.execute {
-            try {
-                val weatherDao = database.weatherDao()
-                val dailyWeatherList = weatherDao.getDailyWeather()
-                if (dailyWeatherList.isNotEmpty()) {
-                    Log.d("DailyWeatherLog", "Daily Weather Data:")
-                    dailyWeatherList.forEach { dailyWeather ->
-                        Log.d("DailyWeatherLog", "Date: ${dailyWeather.date}")
-                        Log.d("DailyWeatherLog", "Weather Code: ${dailyWeather.weatherCode}")
-                        Log.d("DailyWeatherLog", "Max Temperature: ${dailyWeather.maxTemperature}")
-                        Log.d("DailyWeatherLog", "Min Temperature: ${dailyWeather.minTemperature}")
-                        Log.d("DailyWeatherLog", "Sunrise: ${dailyWeather.sunrise}")
-                        Log.d("DailyWeatherLog", "Sunset: ${dailyWeather.sunset}")
-                        Log.d("DailyWeatherLog", "Precipitation Probability: ${dailyWeather.precipitationProbability}")
-                        Log.d("DailyWeatherLog", "----------------------")
-                    }
-                } else {
-                    Log.d("DailyWeatherLog", "No daily weather data available.")
-                }
-            } catch (e: Exception) {
-                Log.e("DailyWeatherLog", "Error fetching daily weather data", e)
-            }
+    private fun updateDailyWeatherUI(dailyWeather: Daily) {
+        binding.sunRiseTextView.text = dailyWeather.sunrise[0].split('T')[1]
+        binding.sunSetTextView.text = dailyWeather.sunset[0].split('T')[1]
+
+        binding.dailyWeatherLayout.removeAllViews()
+        for (i in dailyWeather.time.indices) {
+            addWeatherData(
+                binding.dailyWeatherLayout,
+                dailyWeather.time[i],
+                dailyWeather.precipitationProbabilityMax[i],
+                dailyWeather.temperatureMax[i],
+                dailyWeather.temperatureMin[i]
+            )
         }
+        binding.dailyWeatherLayout.visibility = View.VISIBLE
     }
 
-    fun insertHourlyWeather(database: WeatherDatabase, hourly: Hourly, currentTime: String) {
-        executor.execute {
-            try {
-                Log.d("WeatherApp", "insertHourlyWeather is running on thread: ${Thread.currentThread().name}")
-                val weatherDao = database.weatherDao()
+    private fun saveWeatherData(weather: WeatherResponse) {
+        val database = WeatherDatabase.getDatabase(this@MainActivity)
+        databaseRepository = DatabaseRepository(database)
 
-                // Clear existing entries
-                weatherDao.clearHourlyWeather()
-                Log.d("WeatherApp", "Hourly weather table cleared")
+        databaseRepository.insertCurrentWeather(database, weather.current)
+        databaseRepository.logCurrentWeather(database)
+        databaseRepository.insertDailyWeather(database, weather.daily)
+        databaseRepository.logDailyWeather(database)
+        databaseRepository.insertHourlyWeather(database, weather.hourly, weather.current.time)
+        databaseRepository.logHourlyWeather(database)
 
-                // Prepare and filter data for the next 24 hours
-                val currentDateTime = LocalDateTime.parse(currentTime)
-                val hourlyDataForNext24Hours = hourly.time.zip(hourly.temperature.zip(hourly.weatherCode.zip(hourly.isDay))) { time, triple ->
-                    val (temperature, pair) = triple
-                    val (weatherCode, isDay) = pair
-                    HourlyData(time, temperature, weatherCode, isDay)
-                }.filter { data ->
-                    LocalDateTime.parse(data.time).isAfter(currentDateTime)
-                }.take(24) // Take the next 24 hours
-
-                // Convert filtered data to entities and insert into database
-                val entities = hourlyDataForNext24Hours.map { data ->
-                    HourlyWeatherEntity(
-                        time = data.time,
-                        temperature = data.temperature,
-                        weatherCode = data.weatherCode,
-                        isDay = data.isDay
-                    )
-                }
-                weatherDao.insertHourlyWeather(entities)
-                Log.d("WeatherApp", "insertHourlyWeather: Insertion successful")
-            } catch (e: Exception) {
-                Log.e("WeatherApp", "insertHourlyWeather: Insertion failed", e)
-            }
-        }
+        saveWeatherDataToSharedPreferences(weather.current, weather.hourly, weather.daily)
     }
 
-    fun logHourlyWeather(database: WeatherDatabase) {
-        executor.execute {
-            try {
-                val weatherDao = database.weatherDao()
-                val hourlyWeatherList = weatherDao.getHourlyWeather()
-                if (hourlyWeatherList.isNotEmpty()) {
-                    Log.d("HourlyWeatherLog", "Hourly Weather Data:")
-                    hourlyWeatherList.forEach { hourlyWeather ->
-                        Log.d("HourlyWeatherLog", "Time: ${hourlyWeather.time}")
-                        Log.d("HourlyWeatherLog", "Temperature: ${hourlyWeather.temperature}")
-                        Log.d("HourlyWeatherLog", "Weather Code: ${hourlyWeather.weatherCode}")
-                        Log.d("HourlyWeatherLog", "Is Day: ${hourlyWeather.isDay}")
-                        Log.d("HourlyWeatherLog", "----------------------")
-                    }
-                } else {
-                    Log.d("HourlyWeatherLog", "No hourly weather data available.")
-                }
-            } catch (e: Exception) {
-                Log.e("HourlyWeatherLog", "Error fetching hourly weather data", e)
-            }
-        }
+    private fun handleWeatherFailure() {
+        binding.textViewTemperature.text = "--°C"
+        binding.textViewHumidity.text = "--%"
+        binding.textViewWindSpeed.text = "--km/h"
+        binding.textViewFeelsLike.text = "--°C"
+        binding.imageViewWeather.setImageResource(getWeatherIcon(weatherCode = -1, isDay = -1))
+        binding.textViewTime.text = ""
+        binding.recyclerViewTemperatures.visibility = View.GONE
+        binding.dailyWeatherLayout.visibility = View.GONE
+        binding.sunRiseTextView.text = "-"
+        binding.sunSetTextView.text = "-"
     }
 
 }
