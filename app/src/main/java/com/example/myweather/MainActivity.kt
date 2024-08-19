@@ -18,11 +18,11 @@ import android.util.TypedValue
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
+import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
-import com.google.gson.Gson
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -36,6 +36,7 @@ import java.util.Locale
 import com.example.myweather.data.db.WeatherDatabase
 import com.example.myweather.databinding.ActivityMainBinding
 import com.example.myweather.data.network.responses.*
+import com.example.myweather.data.preferences.WeatherPreferences
 import com.example.myweather.data.repositories.*
 
 class MainActivity : AppCompatActivity() {
@@ -45,6 +46,16 @@ class MainActivity : AppCompatActivity() {
     private lateinit var cityNameRepository: CityNameRepository
     private lateinit var weatherRepository: WeatherRepository
     private lateinit var locationRepository: LocationRepository
+
+    private val weatherPreferences by lazy { WeatherPreferences(this) }
+
+    private val viewModel: WeatherViewModel by viewModels {
+        WeatherViewModelFactory(
+            weatherRepository,
+            cityNameRepository,
+            weatherPreferences
+        )
+    }
 
     private lateinit var locationManager: LocationManager
     private val LOCATION_PERMISSION_REQUEST_CODE = 1
@@ -90,7 +101,7 @@ class MainActivity : AppCompatActivity() {
 
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
-
+        // Checks if shared preferences contains the weather data
         val sharedPreferences = getSharedPreferences("WeatherPrefs", Context.MODE_PRIVATE)
         if (sharedPreferences.contains("current_weather") &&
             sharedPreferences.contains("hourly_weather") &&
@@ -130,8 +141,8 @@ class MainActivity : AppCompatActivity() {
                                 binding.listViewLocations.visibility = View.VISIBLE
                                 binding.listViewLocations.setOnItemClickListener { _, _, position, _ ->
                                     val selectedLocation = it[position]
-                                    fetchWeatherData(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble())
-                                    fetchAndDisplayCityName(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble())
+                                    viewModel.fetchWeather(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble())
+                                    viewModel.fetchCityName(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble(), reverseGeocodeApiKey)
                                     hideKeyboardAndListView()
                                     binding.editTextLocation.setText("")
                                     showMain()
@@ -148,6 +159,21 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         })
+
+        viewModel.weatherState.observe(this) { state ->
+            when (state) {
+                is WeatherState.Loading -> showLoading(true)
+                is WeatherState.Success -> handleWeatherResponse(state.weatherResponse)
+                is WeatherState.Error -> handleWeatherFailure()
+            }
+        }
+
+        viewModel.cityNameState.observe(this) { state ->
+            when (state) {
+                is CityNameState.Success -> binding.textViewCityName.text = state.cityName
+                is CityNameState.Error -> binding.textViewCityName.text = state.message
+            }
+        }
 
     }
 
@@ -244,30 +270,6 @@ class MainActivity : AppCompatActivity() {
         val formattedDateTime = "$dayOfWeek, $formattedTime"
         // Set the formatted date-time to the TextView
         return formattedDateTime
-    }
-
-    private fun fetchWeatherData(latitude: Double, longitude: Double) {
-        weatherRepository.fetchWeatherData(latitude, longitude) { weatherResponse ->
-            weatherResponse?.let {
-                handleWeatherResponse(it)
-            } ?: run {
-                handleWeatherFailure()
-            }
-        }
-        showLoading(isLoading = false)
-        hideKeyboardAndListView()
-    }
-
-    private fun fetchAndDisplayCityName(latitude: Double, longitude: Double){
-        binding.textViewCityName.text = ""
-        cityNameRepository.fetchCityName(latitude, longitude, reverseGeocodeApiKey) { cityName ->
-            cityName?.let {
-                binding.textViewCityName.text = it
-            } ?: run {
-                binding.textViewCityName.text = "Failed to load data"
-            }
-        }
-        hideKeyboardAndListView()
     }
 
     private fun hideKeyboardAndListView() {
@@ -467,81 +469,22 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveWeatherDataToSharedPreferences(current: Current, hourly: Hourly, daily: Daily) {
-        val sharedPreferences = getSharedPreferences("WeatherPrefs", Context.MODE_PRIVATE)
-        val editor = sharedPreferences.edit()
-
-        // Serialize the weather data to JSON strings
-        val gson = Gson()
-        val currentWeatherJson = gson.toJson(current)
-        val hourlyWeatherJson = gson.toJson(hourly)
-        val dailyWeatherJson = gson.toJson(daily)
-
-        // Save the JSON strings to SharedPreferences
-        editor.putString("current_weather", currentWeatherJson)
-        editor.putString("hourly_weather", hourlyWeatherJson)
-        editor.putString("daily_weather", dailyWeatherJson)
-
-        editor.apply() // Apply changes asynchronously
-    }
-
     private fun loadWeatherDataFromSharedPreferences() {
-        val sharedPreferences = getSharedPreferences("WeatherPrefs", Context.MODE_PRIVATE)
-
-        // Retrieve the JSON strings from SharedPreferences
-        val gson = Gson()
-        val currentWeatherJson = sharedPreferences.getString("current_weather", null)
-        val hourlyWeatherJson = sharedPreferences.getString("hourly_weather", null)
-        val dailyWeatherJson = sharedPreferences.getString("daily_weather", null)
-
-        // Deserialize the JSON strings back into objects
-        val currentWeather = gson.fromJson(currentWeatherJson, Current::class.java)
-        val hourlyWeather = gson.fromJson(hourlyWeatherJson, Hourly::class.java)
-        val dailyWeather = gson.fromJson(dailyWeatherJson, Daily::class.java)
+        val currentWeather = weatherPreferences.getCurrentWeather()
+        val hourlyWeather = weatherPreferences.getHourlyWeather()
+        val dailyWeather = weatherPreferences.getDailyWeather()
 
         // Display the data if it's not null
         currentWeather?.let {
-            binding.textViewTemperature.text = "${it.temperature} °C"
-            binding.textViewHumidity.text = "${it.humidity} %"
-            binding.textViewWindSpeed.text = "${it.windSpeed} km/h"
-            binding.textViewFeelsLike.text = "${it.apparentTemperature} °C"
-            val weatherIconResId = getWeatherIcon(weatherCode = it.weatherCode, isDay = it.isDay)
-            binding.imageViewWeather.setImageResource(weatherIconResId)
-            binding.textViewTime.text = formattedDateTime(it.time)
-
-            changeTheme(it.weatherCode, it.isDay)
+            updateCurrentWeatherUI(it)
         }
 
-        // Update the hourly and daily weather data similarly
         hourlyWeather?.let {
-            val currentTime = LocalDateTime.parse(currentWeather?.time ?: "")
-            val hourlyData = it.time.zip(it.temperature.zip(it.weatherCode.zip(it.isDay))) { time, triple ->
-                val (temperature, pair) = triple
-                val (weatherCode, isDay) = pair
-                HourlyData(time, temperature, weatherCode, isDay)
-            }.filter { data ->
-                LocalDateTime.parse(data.time).isAfter(currentTime)
-            }.take(24) // Take the 24 hours after the current time
-            val temperatureAdapter = TemperatureAdapter(hourlyData)
-            binding.recyclerViewTemperatures.adapter = temperatureAdapter
-            binding.recyclerViewTemperatures.visibility = View.VISIBLE
+            updateHourlyWeatherUI(it,currentWeather?.time ?: "")
         }
 
         dailyWeather?.let {
-            binding.sunRiseTextView.text = it.sunrise[0].split('T')[1]
-            binding.sunSetTextView.text = it.sunset[0].split('T')[1]
-
-            binding.dailyWeatherLayout.removeAllViews()
-            for (i in it.time.indices) {
-                addWeatherData(
-                    binding.dailyWeatherLayout,
-                    it.time[i],
-                    it.precipitationProbabilityMax[i],
-                    it.temperatureMax[i],
-                    it.temperatureMin[i]
-                )
-            }
-            binding.dailyWeatherLayout.visibility = View.VISIBLE
+            updateDailyWeatherUI(it)
         }
     }
 
@@ -555,8 +498,8 @@ class MainActivity : AppCompatActivity() {
                 getLocation { latitude, longitude ->
                     if (latitude != null && longitude != null) {
                         // Trigger a new data fetch with the current location
-                        fetchWeatherData(latitude, longitude)
-                        fetchAndDisplayCityName(latitude,longitude)
+                        viewModel.fetchWeather(latitude, longitude)
+                        viewModel.fetchCityName(latitude, longitude, reverseGeocodeApiKey)
                     } else {
                         // Handle location fetch failure
                         Toast.makeText(this@MainActivity, "Unable to get location", Toast.LENGTH_SHORT).show()
@@ -602,8 +545,11 @@ class MainActivity : AppCompatActivity() {
             updateHourlyWeatherUI(it.hourly, it.current.time)
             updateDailyWeatherUI(it.daily)
 
-            // Save data to database and SharedPreferences
+            // Save data to database
             saveWeatherData(it)
+
+            showLoading(isLoading = false)
+            hideKeyboardAndListView()
         }
     }
 
@@ -662,8 +608,6 @@ class MainActivity : AppCompatActivity() {
         databaseRepository.logDailyWeather(database)
         databaseRepository.insertHourlyWeather(database, weather.hourly, weather.current.time)
         databaseRepository.logHourlyWeather(database)
-
-        saveWeatherDataToSharedPreferences(weather.current, weather.hourly, weather.daily)
     }
 
     private fun handleWeatherFailure() {
@@ -677,6 +621,9 @@ class MainActivity : AppCompatActivity() {
         binding.dailyWeatherLayout.visibility = View.GONE
         binding.sunRiseTextView.text = "-"
         binding.sunSetTextView.text = "-"
+
+        showLoading(isLoading = false)
+        hideKeyboardAndListView()
     }
 
 }
