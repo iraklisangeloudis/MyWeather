@@ -16,7 +16,8 @@ import kotlinx.coroutines.withContext
 class WeatherViewModel(
     private val weatherApiRepository: WeatherRepository,
     private val cityNameRepository: CityNameRepository,
-    private val weatherPreferences: WeatherPreferences
+    private val weatherPreferences: WeatherPreferences,
+    private val databaseRepository: DatabaseRepository
 ) : ViewModel() {
 
     private val _weatherState = MutableLiveData<WeatherState>()
@@ -32,6 +33,7 @@ class WeatherViewModel(
                 weatherResponse?.let {
                     handleWeatherResponse(it)
                     weatherPreferences.saveWeatherData(it.current, it.hourly, it.daily)
+                    saveWeatherData(it)
                 } ?: run {
                     handleWeatherFailure()
                 }
@@ -46,6 +48,17 @@ class WeatherViewModel(
 
     private fun handleWeatherFailure() {
         _weatherState.value = WeatherState.Error("Failed to fetch weather data")
+    }
+
+    private fun saveWeatherData(weather: WeatherResponse) {
+        viewModelScope.launch {
+            databaseRepository.insertCurrentWeather(weather.current)
+            databaseRepository.logCurrentWeather()
+            databaseRepository.insertDailyWeather(weather.daily)
+            databaseRepository.logDailyWeather()
+            databaseRepository.insertHourlyWeather(weather.hourly, weather.current.time)
+            databaseRepository.logHourlyWeather()
+        }
     }
 
     fun fetchCityName(latitude: Double, longitude: Double, reverseGeocodeApiKey: String) {

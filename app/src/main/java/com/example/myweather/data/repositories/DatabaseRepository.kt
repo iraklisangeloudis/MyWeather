@@ -16,7 +16,7 @@ class DatabaseRepository(private val database: WeatherDatabase) {
 
     private val executor = Executors.newSingleThreadExecutor()
 
-    fun insertCurrentWeather(database: WeatherDatabase, current: Current) {
+    fun insertCurrentWeather(current: Current) {
         executor.execute {
             try {
                 Log.d("WeatherApp", "insertCurrentWeather is running on thread: ${Thread.currentThread().name}")
@@ -39,7 +39,7 @@ class DatabaseRepository(private val database: WeatherDatabase) {
         }
     }
 
-    fun logCurrentWeather(database: WeatherDatabase) {
+    fun logCurrentWeather() {
         executor.execute {
             try {
                 val weatherDao = database.weatherDao()
@@ -63,7 +63,7 @@ class DatabaseRepository(private val database: WeatherDatabase) {
         }
     }
 
-    fun insertDailyWeather(database: WeatherDatabase, daily: Daily) {
+    fun insertDailyWeather(daily: Daily) {
         executor.execute {
             try {
                 Log.d("WeatherApp", "insertDailyWeather is running on thread: ${Thread.currentThread().name}")
@@ -93,7 +93,7 @@ class DatabaseRepository(private val database: WeatherDatabase) {
         }
     }
 
-    fun logDailyWeather(database: WeatherDatabase) {
+    fun logDailyWeather() {
         executor.execute {
             try {
                 val weatherDao = database.weatherDao()
@@ -119,7 +119,7 @@ class DatabaseRepository(private val database: WeatherDatabase) {
         }
     }
 
-    fun insertHourlyWeather(database: WeatherDatabase, hourly: Hourly, currentTime: String) {
+    fun insertHourlyWeather(hourly: Hourly, currentTime: String) {
         executor.execute {
             try {
                 Log.d("WeatherApp", "insertHourlyWeather is running on thread: ${Thread.currentThread().name}")
@@ -156,7 +156,7 @@ class DatabaseRepository(private val database: WeatherDatabase) {
         }
     }
 
-    fun logHourlyWeather(database: WeatherDatabase) {
+    fun logHourlyWeather() {
         executor.execute {
             try {
                 val weatherDao = database.weatherDao()
