@@ -255,7 +255,7 @@ class MainActivity : AppCompatActivity() {
         binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
     }
 
-    private fun formattedDateTime(dateTimeString: String):String {
+    private fun formattedDateTime(dateTimeString: String): String {
         // Define the input and output formatters
         val inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
         val dateFormatter = DateTimeFormatter.ofPattern("dd/MM")
@@ -267,9 +267,8 @@ class MainActivity : AppCompatActivity() {
         // Get the day of the week
         val dayOfWeek = currentDateTime.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
         // Combine the day of the week, formatted date and time
-        val formattedDateTime = "$dayOfWeek, $formattedTime"
         // Set the formatted date-time to the TextView
-        return formattedDateTime
+        return "$dayOfWeek, $formattedTime"
     }
 
     private fun hideKeyboardAndListView() {
@@ -312,7 +311,7 @@ class MainActivity : AppCompatActivity() {
         binding.dailyWeatherLayout.visibility = View.VISIBLE
     }
 
-    fun getWeatherIcon(weatherCode: Int, isDay:Int): Int {
+    private fun getWeatherIcon(weatherCode: Int, isDay:Int): Int {
         return when (weatherCode) {
             0 -> if (isDay==1) R.drawable.clear1 else R.drawable.clear0
             1 -> if (isDay==1) R.drawable.mc_cloudy1 else R.drawable.mc_cloudy0
