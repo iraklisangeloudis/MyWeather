@@ -42,7 +42,6 @@ import com.example.myweather.data.repositories.*
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
 
-    private lateinit var databaseRepository: DatabaseRepository
     private lateinit var cityNameRepository: CityNameRepository
     private lateinit var weatherRepository: WeatherRepository
     private lateinit var locationRepository: LocationRepository
@@ -53,7 +52,8 @@ class MainActivity : AppCompatActivity() {
         WeatherViewModelFactory(
             weatherRepository,
             cityNameRepository,
-            weatherPreferences
+            weatherPreferences,
+            DatabaseRepository(WeatherDatabase.getDatabase(this))
         )
     }
 
@@ -544,9 +544,6 @@ class MainActivity : AppCompatActivity() {
             updateHourlyWeatherUI(it.hourly, it.current.time)
             updateDailyWeatherUI(it.daily)
 
-            // Save data to database
-            saveWeatherData(it)
-
             showLoading(isLoading = false)
             hideKeyboardAndListView()
         }
@@ -595,18 +592,6 @@ class MainActivity : AppCompatActivity() {
             )
         }
         binding.dailyWeatherLayout.visibility = View.VISIBLE
-    }
-
-    private fun saveWeatherData(weather: WeatherResponse) {
-        val database = WeatherDatabase.getDatabase(this@MainActivity)
-        databaseRepository = DatabaseRepository(database)
-
-        databaseRepository.insertCurrentWeather(database, weather.current)
-        databaseRepository.logCurrentWeather(database)
-        databaseRepository.insertDailyWeather(database, weather.daily)
-        databaseRepository.logDailyWeather(database)
-        databaseRepository.insertHourlyWeather(database, weather.hourly, weather.current.time)
-        databaseRepository.logHourlyWeather(database)
     }
 
     private fun handleWeatherFailure() {
