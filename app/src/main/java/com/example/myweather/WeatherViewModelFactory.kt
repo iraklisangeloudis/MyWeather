@@ -9,7 +9,8 @@ class WeatherViewModelFactory(
     private val weatherApiRepository: WeatherRepository,
     private val cityNameRepository: CityNameRepository,
     private val weatherPreferences: WeatherPreferences,
-    private val databaseRepository: DatabaseRepository
+    private val databaseRepository: DatabaseRepository,
+    private val locationRepository: LocationRepository
 
 ) : ViewModelProvider.Factory {
     override fun <T : ViewModel> create(modelClass: Class<T>): T {
@@ -19,7 +20,8 @@ class WeatherViewModelFactory(
                 weatherApiRepository,
                 cityNameRepository,
                 weatherPreferences,
-                databaseRepository) as T
+                databaseRepository,
+                locationRepository) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class")
     }

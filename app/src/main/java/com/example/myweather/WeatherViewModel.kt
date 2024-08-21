@@ -4,20 +4,17 @@ import androidx.lifecycle.LiveData
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.example.myweather.data.db.entities.*
 import com.example.myweather.data.network.responses.*
 import com.example.myweather.data.preferences.WeatherPreferences
 import com.example.myweather.data.repositories.*
-import com.google.gson.Gson
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 class WeatherViewModel(
     private val weatherApiRepository: WeatherRepository,
     private val cityNameRepository: CityNameRepository,
     private val weatherPreferences: WeatherPreferences,
-    private val databaseRepository: DatabaseRepository
+    private val databaseRepository: DatabaseRepository,
+    private val locationRepository: LocationRepository
 ) : ViewModel() {
 
     private val _weatherState = MutableLiveData<WeatherState>()
@@ -25,6 +22,9 @@ class WeatherViewModel(
 
     private val _cityNameState = MutableLiveData<CityNameState>()
     val cityNameState: LiveData<CityNameState> = _cityNameState
+
+    private val _locationState = MutableLiveData<LocationState>()
+    val locationState: LiveData<LocationState> = _locationState
 
     fun fetchWeather(latitude: Double, longitude: Double) {
         viewModelScope.launch {
@@ -73,10 +73,20 @@ class WeatherViewModel(
         }
     }
 
+    fun getAutocomplete(query: String, apiKey: String) {
+        locationRepository.getAutocomplete(query, apiKey) { locations ->
+            locations?.let {
+                _locationState.value = LocationState.Success(locations)
+            } ?: run {
+                _locationState.value = LocationState.Error("Failed to load location data")
+            }
+        }
+    }
+
 }
 
 sealed class WeatherState {
-    object Loading : WeatherState()
+    data object Loading : WeatherState()
     data class Success(val weatherResponse: WeatherResponse) : WeatherState()
     data class Error(val message: String) : WeatherState()
 }
@@ -84,4 +94,9 @@ sealed class WeatherState {
 sealed class CityNameState {
     data class Success(val cityName: String) : CityNameState()
     data class Error(val message: String) : CityNameState()
+}
+
+sealed class LocationState {
+    data class Success(val locationResponse: List<LocationResponse>) : LocationState()
+    data class Error(val message: String) : LocationState()
 }
