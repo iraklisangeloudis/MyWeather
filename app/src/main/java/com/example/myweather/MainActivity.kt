@@ -53,7 +53,8 @@ class MainActivity : AppCompatActivity() {
             weatherRepository,
             cityNameRepository,
             weatherPreferences,
-            DatabaseRepository(WeatherDatabase.getDatabase(this))
+            DatabaseRepository(WeatherDatabase.getDatabase(this)),
+            locationRepository
         )
     }
 
@@ -129,28 +130,7 @@ class MainActivity : AppCompatActivity() {
                     delay(1000) // debounce delay
                     val query = s.toString()
                     if (query.isNotEmpty()) {
-                        locationRepository.getAutocomplete(query, locationIQApiKey) { locations ->
-                            locations?.let {
-                                val adapter = ArrayAdapter(
-                                    this@MainActivity,
-                                    android.R.layout.simple_list_item_1,
-                                    it.map { location -> location.displayName }
-                                )
-                                binding.listViewLocations.adapter = adapter
-                                hideMain()
-                                binding.listViewLocations.visibility = View.VISIBLE
-                                binding.listViewLocations.setOnItemClickListener { _, _, position, _ ->
-                                    val selectedLocation = it[position]
-                                    viewModel.fetchWeather(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble())
-                                    viewModel.fetchCityName(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble(), reverseGeocodeApiKey)
-                                    hideKeyboardAndListView()
-                                    binding.editTextLocation.setText("")
-                                    showMain()
-                                }
-                            } ?: run {
-                                Toast.makeText(this@MainActivity, "Failed to load location data", Toast.LENGTH_SHORT).show()
-                            }
-                        }
+                        viewModel.getAutocomplete(query,locationIQApiKey)
                     } else {
                         binding.editTextLocation.clearFocus()
                         hideKeyboardAndListView()
@@ -172,6 +152,13 @@ class MainActivity : AppCompatActivity() {
             when (state) {
                 is CityNameState.Success -> binding.textViewCityName.text = state.cityName
                 is CityNameState.Error -> binding.textViewCityName.text = state.message
+            }
+        }
+
+        viewModel.locationState.observe(this) { state ->
+            when (state) {
+                is LocationState.Success -> updateLocationList(state.locationResponse)
+                is LocationState.Error -> Toast.makeText(this@MainActivity, state.message, Toast.LENGTH_SHORT).show()
             }
         }
 
@@ -608,6 +595,27 @@ class MainActivity : AppCompatActivity() {
 
         showLoading(isLoading = false)
         hideKeyboardAndListView()
+    }
+
+    private fun updateLocationList(locations: List<LocationResponse>) {
+        val adapter = ArrayAdapter(
+            this@MainActivity,
+            android.R.layout.simple_list_item_1,
+            locations.map { location -> location.displayName }
+        )
+        binding.listViewLocations.adapter = adapter
+
+        hideMain()
+        binding.listViewLocations.visibility = View.VISIBLE
+
+        binding.listViewLocations.setOnItemClickListener { _, _, position, _ ->
+            val selectedLocation = locations[position]
+            viewModel.fetchWeather(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble())
+            viewModel.fetchCityName(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble(), reverseGeocodeApiKey)
+            hideKeyboardAndListView()
+            binding.editTextLocation.setText("")
+            showMain()
+        }
     }
 
 }
