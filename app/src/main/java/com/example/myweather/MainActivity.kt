@@ -41,13 +41,10 @@ import com.example.myweather.data.repositories.*
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-
     private lateinit var cityNameRepository: CityNameRepository
     private lateinit var weatherRepository: WeatherRepository
     private lateinit var locationRepository: LocationRepository
-
     private val weatherPreferences by lazy { WeatherPreferences(this) }
-
     private val viewModel: WeatherViewModel by viewModels {
         WeatherViewModelFactory(
             weatherRepository,
@@ -57,13 +54,10 @@ class MainActivity : AppCompatActivity() {
             locationRepository
         )
     }
-
     private lateinit var locationManager: LocationManager
     private val LOCATION_PERMISSION_REQUEST_CODE = 1
-
     private val locationIQApiKey = BuildConfig.LOCATION_IQ_API_KEY
     private val reverseGeocodeApiKey = BuildConfig.REVERSE_GEOCODE_API_KEY
-
     private var isKeyboardVisible = false
     private var backPressCount = 0
     private val handler = Handler(Looper.getMainLooper())
@@ -78,27 +72,11 @@ class MainActivity : AppCompatActivity() {
         weatherRepository = WeatherRepository()
         locationRepository = LocationRepository()
 
-        binding.recyclerViewTemperatures.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
-        // Initialize recyclerViewTemperatures with an empty list
-        var temperatureAdapter = TemperatureAdapter(listOf())
-        binding.recyclerViewTemperatures.adapter = temperatureAdapter
-
-        //Set the status and navigation bar colors to Clear Day Blue on load
-        window.statusBarColor = ContextCompat.getColor(this, R.color.Clear_Day_Blue)
-        window.navigationBarColor = ContextCompat.getColor(this, R.color.Clear_Day_Blue)
-
+        initialSetup()
+        observeViewModel()
+        setupListeners()
         //Request permission to use location the first time the app is downloaded
         requestLocationPermission()
-
-        // Listener to detect keyboard visibility
-        val rootView = findViewById<View>(android.R.id.content)
-        rootView.viewTreeObserver.addOnGlobalLayoutListener {
-            val rect = Rect()
-            rootView.getWindowVisibleDisplayFrame(rect)
-            val screenHeight = rootView.height
-            val keypadHeight = screenHeight - rect.bottom
-            isKeyboardVisible = keypadHeight > screenHeight * 0.15 // 15% of the screen height to consider it keyboard
-        }
 
         locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
 
@@ -111,57 +89,6 @@ class MainActivity : AppCompatActivity() {
             loadWeatherDataFromSharedPreferences()
         }
         checkLocationAndFetchData()
-
-        binding.useLocationStatusButton.setOnClickListener {
-            checkLocationAndFetchData()
-            binding.editTextLocation.clearFocus()
-        }
-
-        binding.editTextLocation.addTextChangedListener(object : TextWatcher {
-            private var debounceJob: Job? = null
-
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-
-            override fun afterTextChanged(s: Editable?) {
-                debounceJob?.cancel()
-                debounceJob = CoroutineScope(Dispatchers.Main).launch {
-                    delay(1000) // debounce delay
-                    val query = s.toString()
-                    if (query.isNotEmpty()) {
-                        viewModel.getAutocomplete(query,locationIQApiKey)
-                    } else {
-                        binding.editTextLocation.clearFocus()
-                        hideKeyboardAndListView()
-                        showMain()
-                    }
-                }
-            }
-        })
-
-        viewModel.weatherState.observe(this) { state ->
-            when (state) {
-                is WeatherState.Loading -> showLoading(true)
-                is WeatherState.Success -> handleWeatherResponse(state.weatherResponse)
-                is WeatherState.Error -> handleWeatherFailure()
-            }
-        }
-
-        viewModel.cityNameState.observe(this) { state ->
-            when (state) {
-                is CityNameState.Success -> binding.textViewCityName.text = state.cityName
-                is CityNameState.Error -> binding.textViewCityName.text = state.message
-            }
-        }
-
-        viewModel.locationState.observe(this) { state ->
-            when (state) {
-                is LocationState.Success -> updateLocationList(state.locationResponse)
-                is LocationState.Error -> Toast.makeText(this@MainActivity, state.message, Toast.LENGTH_SHORT).show()
-            }
-        }
-
     }
 
     override fun onBackPressed() {
@@ -183,6 +110,23 @@ class MainActivity : AppCompatActivity() {
         showMain()
     }
 
+    override fun onRequestPermissionsResult(
+        requestCode: Int,
+        permissions: Array<out String>,
+        grantResults: IntArray
+    ) {
+        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
+        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
+            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+                // Permission granted, proceed with location fetch
+                checkLocationAndFetchData()
+            } else {
+                Log.e("WeatherApp", "Location permission denied.")
+            }
+        }
+    }
+
+    // Location Handling
     private fun isLocationEnabled(): Boolean {
         val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
         return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
@@ -238,6 +182,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // Loading and keyboard visibility handling
     private fun showLoading(isLoading: Boolean) {
         binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
     }
@@ -268,6 +213,7 @@ class MainActivity : AppCompatActivity() {
         binding.listViewLocations.adapter = null
     }
 
+    // Main Visibility
     private fun hideMain(){
         binding.useLocationStatusButton.visibility = View.GONE
         binding.textViewTemperature.visibility = View.GONE
@@ -297,6 +243,7 @@ class MainActivity : AppCompatActivity() {
         binding.thirdLayout.visibility = View.VISIBLE
         binding.dailyWeatherLayout.visibility = View.VISIBLE
     }
+
 
     private fun getWeatherIcon(weatherCode: Int, isDay:Int): Int {
         return when (weatherCode) {
@@ -352,6 +299,8 @@ class MainActivity : AppCompatActivity() {
             mainLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.Clear_Day_Blue))
         }
     }
+
+
 
     private fun addWeatherData(container: LinearLayout, day: String, precipitationProbability: Int, maxTemperature: Double, minTemperature: Double) {
         val dayLayout = LinearLayout(this).apply {
@@ -455,6 +404,8 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+
+    // UI Updates
     private fun loadWeatherDataFromSharedPreferences() {
         val currentWeather = weatherPreferences.getCurrentWeather()
         val hourlyWeather = weatherPreferences.getHourlyWeather()
@@ -505,22 +456,6 @@ class MainActivity : AppCompatActivity() {
                 arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
                 LOCATION_PERMISSION_REQUEST_CODE
             )
-        }
-    }
-
-    override fun onRequestPermissionsResult(
-        requestCode: Int,
-        permissions: Array<out String>,
-        grantResults: IntArray
-    ) {
-        super.onRequestPermissionsResult(requestCode, permissions, grantResults)
-        if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
-            if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
-                // Permission granted, proceed with location fetch
-                checkLocationAndFetchData()
-            } else {
-                Log.e("WeatherApp", "Location permission denied.")
-            }
         }
     }
 
@@ -618,4 +553,80 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+
+    private fun initialSetup() {
+        //setup the RecyclerView
+        binding.recyclerViewTemperatures.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
+        // Initialize recyclerViewTemperatures with an empty list
+        var temperatureAdapter = TemperatureAdapter(listOf())
+        binding.recyclerViewTemperatures.adapter = temperatureAdapter
+
+        //Set the status and navigation bar colors to Clear Day Blue on load
+        window.statusBarColor = ContextCompat.getColor(this, R.color.Clear_Day_Blue)
+        window.navigationBarColor = ContextCompat.getColor(this, R.color.Clear_Day_Blue)
+    }
+
+    // Event Listeners
+    private fun setupListeners() {
+        // Listener to detect keyboard visibility
+        val rootView = findViewById<View>(android.R.id.content)
+        rootView.viewTreeObserver.addOnGlobalLayoutListener {
+            val rect = Rect()
+            rootView.getWindowVisibleDisplayFrame(rect)
+            val screenHeight = rootView.height
+            val keypadHeight = screenHeight - rect.bottom
+            isKeyboardVisible = keypadHeight > screenHeight * 0.15 // 15% of the screen height to consider it keyboard
+        }
+        // Use Location button listener
+        binding.useLocationStatusButton.setOnClickListener {
+            checkLocationAndFetchData()
+            binding.editTextLocation.clearFocus()
+        }
+        // User typing listener
+        binding.editTextLocation.addTextChangedListener(object : TextWatcher {
+            private var debounceJob: Job? = null
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+            override fun afterTextChanged(s: Editable?) {
+                debounceJob?.cancel()
+                debounceJob = CoroutineScope(Dispatchers.Main).launch {
+                    delay(1000) // debounce delay
+                    val query = s.toString()
+                    if (query.isNotEmpty()) {
+                        viewModel.getAutocomplete(query,locationIQApiKey)
+                    } else {
+                        binding.editTextLocation.clearFocus()
+                        hideKeyboardAndListView()
+                        showMain()
+                    }
+                }
+            }
+        })
+    }
+
+    //ViewModel Observer
+    private fun observeViewModel() {
+        viewModel.weatherState.observe(this) { state ->
+            when (state) {
+                is WeatherState.Loading -> showLoading(true)
+                is WeatherState.Success -> handleWeatherResponse(state.weatherResponse)
+                is WeatherState.Error -> handleWeatherFailure()
+            }
+        }
+        viewModel.cityNameState.observe(this) { state ->
+            when (state) {
+                is CityNameState.Success -> binding.textViewCityName.text = state.cityName
+                is CityNameState.Error -> binding.textViewCityName.text = state.message
+            }
+        }
+        viewModel.locationState.observe(this) { state ->
+            when (state) {
+                is LocationState.Success -> updateLocationList(state.locationResponse)
+                is LocationState.Error -> Toast.makeText(this@MainActivity, state.message, Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
 }
