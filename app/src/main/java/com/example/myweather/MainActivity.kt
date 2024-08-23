@@ -1,26 +1,19 @@
 package com.example.myweather
 
-import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
-import android.content.res.Resources
 import android.graphics.Rect
-import android.location.Location
-import android.location.LocationListener
-import android.location.LocationManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.Editable
 import android.text.TextWatcher
 import android.util.Log
-import android.util.TypedValue
 import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
-import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import kotlinx.coroutines.CoroutineScope
@@ -28,16 +21,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
 import com.example.myweather.data.db.WeatherDatabase
 import com.example.myweather.databinding.ActivityMainBinding
 import com.example.myweather.data.network.responses.*
 import com.example.myweather.data.preferences.WeatherPreferences
 import com.example.myweather.data.repositories.*
+import com.example.myweather.utils.DateTimeUtils.formattedDateTime
+import com.example.myweather.utils.LocationHandler.getLocation
+import com.example.myweather.utils.LocationHandler.requestLocationPermission
+import com.example.myweather.utils.LocationHandler.isLocationPermissionGranted
+import com.example.myweather.utils.LocationHandler.isLocationEnabled
+import com.example.myweather.utils.WeatherTheme.changeTheme
+import com.example.myweather.utils.WeatherTheme.getWeatherIcon
+import com.example.myweather.utils.DailyWeatherUtils.addWeatherData
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
@@ -54,7 +51,6 @@ class MainActivity : AppCompatActivity() {
             locationRepository
         )
     }
-    private lateinit var locationManager: LocationManager
     private val LOCATION_PERMISSION_REQUEST_CODE = 1
     private val locationIQApiKey = BuildConfig.LOCATION_IQ_API_KEY
     private val reverseGeocodeApiKey = BuildConfig.REVERSE_GEOCODE_API_KEY
@@ -67,18 +63,11 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Initialize repositories
-        cityNameRepository = CityNameRepository()
-        weatherRepository = WeatherRepository()
-        locationRepository = LocationRepository()
-
+        initializeRepositories()
         initialSetup()
         observeViewModel()
         setupListeners()
-        //Request permission to use location the first time the app is downloaded
-        requestLocationPermission()
-
-        locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        requestLocationPermission(this, LOCATION_PERMISSION_REQUEST_CODE)
 
         // Checks if shared preferences contains the weather data
         val sharedPreferences = getSharedPreferences("WeatherPrefs", Context.MODE_PRIVATE)
@@ -126,81 +115,9 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // Location Handling
-    private fun isLocationEnabled(): Boolean {
-        val locationManager = getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
-                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
-    }
-
-    private fun isLocationPermissionGranted(): Boolean {
-        return ContextCompat.checkSelfPermission(
-            this,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
-    private fun requestLocationPermission() {
-        ActivityCompat.requestPermissions(
-            this,
-            arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-            LOCATION_PERMISSION_REQUEST_CODE
-        )
-    }
-
-    private fun getLocation(callback: (Double?, Double?) -> Unit) {
-        try {
-            val locationListener = object : LocationListener {
-                override fun onLocationChanged(location: Location) {
-                    val latitude = location.latitude
-                    val longitude = location.longitude
-                    callback(latitude, longitude)
-                    locationManager.removeUpdates(this)  // Remove updates after getting the location
-                }
-
-                override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) {}
-                override fun onProviderEnabled(provider: String) {}
-                override fun onProviderDisabled(provider: String) {}
-            }
-
-            // Request location updates from both GPS and Network providers
-            locationManager.requestLocationUpdates(
-                LocationManager.GPS_PROVIDER,
-                0L,
-                0f,
-                locationListener
-            )
-            locationManager.requestLocationUpdates(
-                LocationManager.NETWORK_PROVIDER,
-                0L,
-                0f,
-                locationListener
-            )
-
-        } catch (e: SecurityException) {
-            callback(null, null)
-        }
-    }
-
     // Loading and keyboard visibility handling
     private fun showLoading(isLoading: Boolean) {
         binding.progressBar.visibility = if (isLoading) View.VISIBLE else View.GONE
-    }
-
-    private fun formattedDateTime(dateTimeString: String): String {
-        // Define the input and output formatters
-        val inputFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd'T'HH:mm")
-        val dateFormatter = DateTimeFormatter.ofPattern("dd/MM")
-        val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
-        // Parse the input string to a LocalDateTime object
-        val currentDateTime = LocalDateTime.parse(dateTimeString, inputFormatter)
-        // Format the time
-        val formattedTime = currentDateTime.format(timeFormatter)
-        // Get the day of the week
-        val dayOfWeek = currentDateTime.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
-        // Combine the day of the week, formatted date and time
-        // Set the formatted date-time to the TextView
-        return "$dayOfWeek, $formattedTime"
     }
 
     private fun hideKeyboardAndListView() {
@@ -245,166 +162,6 @@ class MainActivity : AppCompatActivity() {
     }
 
 
-    private fun getWeatherIcon(weatherCode: Int, isDay:Int): Int {
-        return when (weatherCode) {
-            0 -> if (isDay==1) R.drawable.clear1 else R.drawable.clear0
-            1 -> if (isDay==1) R.drawable.mc_cloudy1 else R.drawable.mc_cloudy0
-            2 -> if (isDay==1) R.drawable.mc_cloudy1 else R.drawable.mc_cloudy0
-            3 -> if (isDay==1) R.drawable.mc_cloudy1 else R.drawable.mc_cloudy0
-            45 -> R.drawable.fog
-            48 -> R.drawable.fog
-            51 -> R.drawable.mc_cloudy
-            53 -> R.drawable.mc_cloudy
-            55 -> R.drawable.mc_cloudy
-            56 -> R.drawable.mc_cloudy
-            57 -> R.drawable.mc_cloudy
-            61 -> R.drawable.rain
-            63 -> R.drawable.rain
-            65 -> R.drawable.rain
-            66 -> R.drawable.sleet
-            67 -> R.drawable.sleet
-            71 -> R.drawable.l_snow
-            73 -> R.drawable.l_snow
-            75 -> R.drawable.l_snow
-            77 -> R.drawable.hail
-            80 -> if (isDay==1) R.drawable.shower1 else R.drawable.shower0
-            81 -> if (isDay==1) R.drawable.shower1 else R.drawable.shower0
-            82 -> if (isDay==1) R.drawable.shower1 else R.drawable.shower0
-            85 -> if (isDay==1) R.drawable.l_snow1 else R.drawable.l_snow0
-            86 -> if (isDay==1) R.drawable.l_snow1 else R.drawable.l_snow0
-            95 -> R.drawable.tstorm
-            96 -> R.drawable.tshower
-            99 -> R.drawable.tshower
-            else -> R.drawable.unknown
-        }
-    }
-
-    private fun changeTheme(weatherCode: Int, isDay:Int) {
-        if(weatherCode in 45..77 || weatherCode in 95..99){
-            window.statusBarColor = ContextCompat.getColor(this, R.color.Rain_Blue)
-            window.navigationBarColor = ContextCompat.getColor(this, R.color.Rain_Blue)
-            val mainLayout = findViewById<RelativeLayout>(R.id.mainLayout)
-            mainLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.Rain_Blue))
-        }
-        else if(isDay==0){
-            window.statusBarColor = ContextCompat.getColor(this, R.color.Night_Blue)
-            window.navigationBarColor = ContextCompat.getColor(this, R.color.Night_Blue)
-            val mainLayout = findViewById<RelativeLayout>(R.id.mainLayout)
-            mainLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.Night_Blue))
-        }
-        else{
-            window.statusBarColor = ContextCompat.getColor(this, R.color.Clear_Day_Blue)
-            window.navigationBarColor = ContextCompat.getColor(this, R.color.Clear_Day_Blue)
-            val mainLayout = findViewById<RelativeLayout>(R.id.mainLayout)
-            mainLayout.setBackgroundColor(ContextCompat.getColor(this, R.color.Clear_Day_Blue))
-        }
-    }
-
-
-
-    private fun addWeatherData(container: LinearLayout, day: String, precipitationProbability: Int, maxTemperature: Double, minTemperature: Double) {
-        val dayLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            setPadding(0, 16, 0, 16)
-            layoutParams = LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-            )
-        }
-
-        val textColor = ContextCompat.getColor(this, R.color.light)
-
-        // Parse the date string to a LocalDate object
-        val date = LocalDate.parse(day, DateTimeFormatter.ISO_DATE)
-        // Get the day of the week and return it as a string
-        var newDay: String? = null
-        // Check if the date is today
-        val today = LocalDate.now()
-        if (date == today) {
-            newDay = "Today"
-        } else {
-            // Get the day of the week and return it as a string in English
-            newDay = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
-        }
-        val dayView = TextView(this).apply {
-            text = newDay
-            setTextColor(textColor)
-            textSize = 18f
-            layoutParams = LinearLayout.LayoutParams(
-                0, // width 0 to distribute space based on weight
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                1.3f
-            ).apply {
-                setPadding(16, 0, 0, 0)
-            }
-        }
-
-        val precipitationLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            layoutParams = LinearLayout.LayoutParams(
-                0, // width 0 to distribute space based on weight
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                .7f
-            ).apply {
-                setPadding(0, 8, 16, 0)
-            }
-        }
-
-        val precipitationImage = ImageView(this).apply {
-            setImageResource(R.drawable.raindrop)
-            setSizeInDp(24f, 24f) // Set size in dp
-        }
-
-        val precipitationView = TextView(this).apply {
-            text = "$precipitationProbability%"
-            setTextColor(textColor)
-            setPadding(8, 0, 0, 0)
-        }
-
-        precipitationLayout.addView(precipitationImage)
-        precipitationLayout.addView(precipitationView)
-
-        val maxTempView = TextView(this).apply {
-            text = "${maxTemperature}°C"
-            setTextColor(textColor)
-            layoutParams = LinearLayout.LayoutParams(
-                0, // width 0 to distribute space based on weight
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                .5f
-            ).apply {
-                setPadding(0, 0, 16, 0)
-            }
-        }
-
-        val minTempView = TextView(this).apply {
-            text = "${minTemperature}°C"
-            setTextColor(textColor)
-            layoutParams = LinearLayout.LayoutParams(
-                0, // width 0 to distribute space based on weight
-                LinearLayout.LayoutParams.WRAP_CONTENT,
-                .5f
-            ).apply {
-                setPadding(0, 0, 16, 0)
-            }
-        }
-
-        dayLayout.addView(dayView)
-        dayLayout.addView(precipitationLayout)
-        dayLayout.addView(maxTempView)
-        dayLayout.addView(minTempView)
-
-        container.addView(dayLayout)
-    }
-
-    private fun ImageView.setSizeInDp(widthDp: Float, heightDp: Float) {
-        val widthPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, widthDp, Resources.getSystem().displayMetrics).toInt()
-        val heightPx = TypedValue.applyDimension(TypedValue.COMPLEX_UNIT_DIP, heightDp, Resources.getSystem().displayMetrics).toInt()
-        layoutParams = LinearLayout.LayoutParams(widthPx, heightPx).apply {
-            setMargins(0, 0, 8, 0) // Margin right
-        }
-    }
-
-
     // UI Updates
     private fun loadWeatherDataFromSharedPreferences() {
         val currentWeather = weatherPreferences.getCurrentWeather()
@@ -428,17 +185,15 @@ class MainActivity : AppCompatActivity() {
     private fun checkLocationAndFetchData() {
         showLoading(isLoading = true)
         // Check if location permissions are granted
-        if (isLocationPermissionGranted()) {
+        if (isLocationPermissionGranted(this)) {
             // Check if location services are enabled
-            if (isLocationEnabled()) {
+            if (isLocationEnabled(this)) {
                 // Fetch the current location
-                getLocation { latitude, longitude ->
-                    if (latitude != null && longitude != null) {
-                        // Trigger a new data fetch with the current location
-                        viewModel.fetchWeather(latitude, longitude)
-                        viewModel.fetchCityName(latitude, longitude, reverseGeocodeApiKey)
-                    } else {
-                        // Handle location fetch failure
+                getLocation(this) { location ->
+                    location?.let {
+                        viewModel.fetchWeather(it.latitude, it.longitude)
+                        viewModel.fetchCityName(it.latitude, it.longitude, reverseGeocodeApiKey)
+                    } ?: run {
                         Toast.makeText(this@MainActivity, "Unable to get location", Toast.LENGTH_SHORT).show()
                         showLoading(isLoading = false)
                     }
@@ -451,11 +206,7 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this@MainActivity, "Location permission not granted", Toast.LENGTH_SHORT).show()
             showLoading(isLoading = false)
             // Request location permissions if not granted
-            ActivityCompat.requestPermissions(
-                this,
-                arrayOf(Manifest.permission.ACCESS_FINE_LOCATION),
-                LOCATION_PERMISSION_REQUEST_CODE
-            )
+            requestLocationPermission(this, LOCATION_PERMISSION_REQUEST_CODE)
         }
     }
 
@@ -481,7 +232,7 @@ class MainActivity : AppCompatActivity() {
         binding.imageViewWeather.setImageResource(weatherIconResId)
         binding.textViewTime.text = formattedDateTime(currentWeather.time)
 
-        changeTheme(currentWeather.weatherCode, currentWeather.isDay)
+        changeTheme(currentWeather.weatherCode, currentWeather.isDay, this ,window, binding.mainLayout)
     }
 
     private fun updateHourlyWeatherUI(hourlyWeather: Hourly, currentTime: String) {
@@ -506,6 +257,7 @@ class MainActivity : AppCompatActivity() {
         binding.dailyWeatherLayout.removeAllViews()
         for (i in dailyWeather.time.indices) {
             addWeatherData(
+                this,
                 binding.dailyWeatherLayout,
                 dailyWeather.time[i],
                 dailyWeather.precipitationProbabilityMax[i],
@@ -553,6 +305,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+
+    // Initialize
+    private fun initializeRepositories() {
+        cityNameRepository = CityNameRepository()
+        weatherRepository = WeatherRepository()
+        locationRepository = LocationRepository()
+    }
 
     private fun initialSetup() {
         //setup the RecyclerView
@@ -619,7 +378,7 @@ class MainActivity : AppCompatActivity() {
         viewModel.cityNameState.observe(this) { state ->
             when (state) {
                 is CityNameState.Success -> binding.textViewCityName.text = state.cityName
-                is CityNameState.Error -> binding.textViewCityName.text = state.message
+                is CityNameState.Error -> binding.textViewCityName.text = ""
             }
         }
         viewModel.locationState.observe(this) { state ->

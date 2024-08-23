@@ -42,7 +42,6 @@ class WeatherViewModel(
     }
 
     private fun handleWeatherResponse(response: WeatherResponse) {
-        //saveWeatherData(response)
         _weatherState.value = WeatherState.Success(response)
     }
 
