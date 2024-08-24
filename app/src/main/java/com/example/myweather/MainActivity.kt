@@ -27,6 +27,13 @@ import com.example.myweather.databinding.ActivityMainBinding
 import com.example.myweather.data.network.responses.*
 import com.example.myweather.data.preferences.WeatherPreferences
 import com.example.myweather.data.repositories.*
+import com.example.myweather.domain.HourlyData
+import com.example.myweather.presentation.CityNameState
+import com.example.myweather.presentation.LocationState
+import com.example.myweather.presentation.TemperatureAdapter
+import com.example.myweather.presentation.WeatherState
+import com.example.myweather.presentation.WeatherViewModel
+import com.example.myweather.presentation.WeatherViewModelFactory
 import com.example.myweather.utils.DateTimeUtils.formattedDateTime
 import com.example.myweather.utils.LocationHandler.getLocation
 import com.example.myweather.utils.LocationHandler.requestLocationPermission
@@ -77,6 +84,7 @@ class MainActivity : AppCompatActivity() {
         ){
             loadWeatherDataFromSharedPreferences()
         }
+        // Fetch Weather Data on start
         checkLocationAndFetchData()
     }
 

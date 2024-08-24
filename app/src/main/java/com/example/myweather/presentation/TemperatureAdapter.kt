@@ -1,4 +1,4 @@
-package com.example.myweather
+package com.example.myweather.presentation
 
 import android.view.LayoutInflater
 import android.view.View
@@ -6,6 +6,8 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
 import androidx.recyclerview.widget.RecyclerView
+import com.example.myweather.R
+import com.example.myweather.domain.HourlyData
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
