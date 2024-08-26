@@ -29,14 +29,13 @@ class WeatherViewModel(
     fun fetchWeather(latitude: Double, longitude: Double) {
         viewModelScope.launch {
             _weatherState.value = WeatherState.Loading
-            weatherApiRepository.fetchWeatherData(latitude, longitude) { weatherResponse ->
-                weatherResponse?.let {
-                    handleWeatherResponse(it)
-                    weatherPreferences.saveWeatherData(it.current, it.hourly, it.daily)
-                    saveWeatherData(it)
-                } ?: run {
-                    handleWeatherFailure()
-                }
+            val weatherResponse = weatherApiRepository.fetchWeatherData(latitude, longitude)
+            weatherResponse?.let {
+                handleWeatherResponse(it)
+                weatherPreferences.saveWeatherData(it.current, it.hourly, it.daily)
+                saveWeatherData(it)
+            } ?: run {
+                handleWeatherFailure()
             }
         }
     }
@@ -62,18 +61,18 @@ class WeatherViewModel(
 
     fun fetchCityName(latitude: Double, longitude: Double, reverseGeocodeApiKey: String) {
         viewModelScope.launch {
-            cityNameRepository.fetchCityName(latitude, longitude, reverseGeocodeApiKey) { cityName ->
-                cityName?.let {
-                    _cityNameState.value = CityNameState.Success(it)
-                } ?: run {
-                    _cityNameState.value = CityNameState.Error("Failed to load city name")
-                }
+            val cityName = cityNameRepository.fetchCityName(latitude, longitude, reverseGeocodeApiKey)
+            cityName?.let {
+                _cityNameState.value = CityNameState.Success(it)
+            } ?: run {
+                _cityNameState.value = CityNameState.Error("Failed to load city name")
             }
         }
     }
 
     fun getAutocomplete(query: String, apiKey: String) {
-        locationRepository.getAutocomplete(query, apiKey) { locations ->
+        viewModelScope.launch {
+            val locations = locationRepository.getAutocomplete(query, apiKey)
             locations?.let {
                 _locationState.value = LocationState.Success(locations)
             } ?: run {
