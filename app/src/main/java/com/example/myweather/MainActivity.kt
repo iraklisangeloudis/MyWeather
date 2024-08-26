@@ -139,34 +139,31 @@ class MainActivity : AppCompatActivity() {
     }
 
     // Main Visibility
-    private fun hideMain(){
-        binding.useLocationStatusButton.visibility = View.GONE
-        binding.textViewTemperature.visibility = View.GONE
-        binding.textViewWindSpeed.visibility = View.GONE
-        binding.textViewHumidity.visibility = View.GONE
-        binding.textViewFeelsLike.visibility = View.GONE
-        binding.imageViewWeather.visibility = View.GONE
-        binding.textViewCityName.visibility = View.GONE
-        binding.secondLayout.visibility = View.GONE
-        binding.recyclerViewTemperatures.visibility = View.GONE
-        binding.textViewTime.visibility = View.GONE
-        binding.thirdLayout.visibility = View.GONE
-        binding.dailyWeatherLayout.visibility = View.GONE
+    private fun setMainVisibility(visibility: Int) {
+        val views = listOf(
+            binding.useLocationStatusButton,
+            binding.textViewTemperature,
+            binding.textViewWindSpeed,
+            binding.textViewHumidity,
+            binding.textViewFeelsLike,
+            binding.imageViewWeather,
+            binding.textViewCityName,
+            binding.secondLayout,
+            binding.recyclerViewTemperatures,
+            binding.textViewTime,
+            binding.thirdLayout,
+            binding.dailyWeatherLayout
+        )
+
+        views.forEach { it.visibility = visibility }
     }
 
-    private fun showMain(){
-        binding.useLocationStatusButton.visibility = View.VISIBLE
-        binding.textViewTemperature.visibility = View.VISIBLE
-        binding.textViewWindSpeed.visibility = View.VISIBLE
-        binding.textViewHumidity.visibility = View.VISIBLE
-        binding.textViewFeelsLike.visibility = View.VISIBLE
-        binding.imageViewWeather.visibility = View.VISIBLE
-        binding.textViewCityName.visibility = View.VISIBLE
-        binding.secondLayout.visibility = View.VISIBLE
-        binding.recyclerViewTemperatures.visibility = View.VISIBLE
-        binding.textViewTime.visibility = View.VISIBLE
-        binding.thirdLayout.visibility = View.VISIBLE
-        binding.dailyWeatherLayout.visibility = View.VISIBLE
+    private fun hideMain() {
+        setMainVisibility(View.GONE)
+    }
+
+    private fun showMain() {
+        setMainVisibility(View.VISIBLE)
     }
 
 
