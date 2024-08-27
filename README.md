@@ -63,5 +63,5 @@ MyWeather is an intuitive weather application for Android, built using Kotlin an
 <img src="Screenshot_20240721_194528_MyWeather.jpg" alt="screenshot" width="200"/>
 <img src="Screenshot_20240721_211509_MyWeather.jpg" alt="screenshot" width="200"/>
 <img src="Screenshot_20240721_180010_MyWeather.jpg" alt="screenshot" width="200"/>
-<img src="Screenshot_20240827_184504_MyWeather.jpg" alt="screenshot" width="200"/>
+<img src="Screenshot_20240721_180210_MyWeather.jpg" alt="screenshot" width="200"/>
 </p>
