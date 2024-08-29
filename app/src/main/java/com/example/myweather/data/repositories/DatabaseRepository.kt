@@ -5,7 +5,7 @@ import com.example.myweather.data.db.WeatherDatabase
 import com.example.myweather.data.db.entities.CurrentWeatherEntity
 import com.example.myweather.data.db.entities.DailyWeatherEntity
 import com.example.myweather.data.db.entities.HourlyWeatherEntity
-import com.example.myweather.domain.HourlyData
+import com.example.myweather.presentation.HourlyData
 import com.example.myweather.data.network.responses.Current
 import com.example.myweather.data.network.responses.Daily
 import com.example.myweather.data.network.responses.Hourly

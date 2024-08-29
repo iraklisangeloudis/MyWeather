@@ -27,21 +27,15 @@ import com.example.myweather.databinding.ActivityMainBinding
 import com.example.myweather.data.network.responses.*
 import com.example.myweather.data.preferences.WeatherPreferences
 import com.example.myweather.data.repositories.*
-import com.example.myweather.domain.HourlyData
-import com.example.myweather.presentation.CityNameState
-import com.example.myweather.presentation.LocationState
-import com.example.myweather.presentation.TemperatureAdapter
-import com.example.myweather.presentation.WeatherState
-import com.example.myweather.presentation.WeatherViewModel
-import com.example.myweather.presentation.WeatherViewModelFactory
-import com.example.myweather.utils.DateTimeUtils.formattedDateTime
-import com.example.myweather.utils.LocationHandler.getLocation
-import com.example.myweather.utils.LocationHandler.requestLocationPermission
-import com.example.myweather.utils.LocationHandler.isLocationPermissionGranted
-import com.example.myweather.utils.LocationHandler.isLocationEnabled
-import com.example.myweather.utils.WeatherTheme.changeTheme
-import com.example.myweather.utils.WeatherTheme.getWeatherIcon
-import com.example.myweather.utils.DailyWeatherUtils.addWeatherData
+import com.example.myweather.presentation.*
+import com.example.myweather.presentation.utils.DateTimeUtils.formattedDateTime
+import com.example.myweather.presentation.utils.LocationHandler.getLocation
+import com.example.myweather.presentation.utils.LocationHandler.requestLocationPermission
+import com.example.myweather.presentation.utils.LocationHandler.isLocationPermissionGranted
+import com.example.myweather.presentation.utils.LocationHandler.isLocationEnabled
+import com.example.myweather.presentation.utils.WeatherTheme.changeTheme
+import com.example.myweather.presentation.utils.WeatherTheme.getWeatherIcon
+import com.example.myweather.presentation.utils.DailyWeatherUtils.addWeatherData
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding

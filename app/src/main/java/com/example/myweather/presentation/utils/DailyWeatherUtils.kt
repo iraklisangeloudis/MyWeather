@@ -1,4 +1,4 @@
-package com.example.myweather.utils
+package com.example.myweather.presentation.utils
 
 import android.content.Context
 import android.content.res.Resources
