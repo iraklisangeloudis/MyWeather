@@ -54,7 +54,7 @@ class MainActivity : AppCompatActivity() {
             weatherRepository,
             cityNameRepository,
             weatherPreferences,
-            DatabaseRepository(WeatherDatabase.getDatabase(this)),
+            DatabaseRepositoryImpl(WeatherDatabase.getDatabase(this)),
             locationRepository
         )
     }
@@ -313,19 +313,19 @@ class MainActivity : AppCompatActivity() {
 
     // Initialize
     private fun initializeRepositories() {
-        cityNameRepository = CityNameRepository()
-        weatherRepository = WeatherRepository()
-        locationRepository = LocationRepository()
+        cityNameRepository = CityNameRepositoryImpl()
+        weatherRepository = WeatherRepositoryImpl()
+        locationRepository = LocationRepositoryImpl()
     }
 
     private fun initialSetup() {
-        //setup the RecyclerView
+        // setup the RecyclerView
         binding.recyclerViewTemperatures.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         // Initialize recyclerViewTemperatures with an empty list
         var temperatureAdapter = TemperatureAdapter(listOf())
         binding.recyclerViewTemperatures.adapter = temperatureAdapter
 
-        //Set the status and navigation bar colors to Clear Day Blue on load
+        // Set the status and navigation bar colors to Clear Day Blue on load
         window.statusBarColor = ContextCompat.getColor(this, R.color.Clear_Day_Blue)
         window.navigationBarColor = ContextCompat.getColor(this, R.color.Clear_Day_Blue)
     }

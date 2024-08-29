@@ -12,14 +12,23 @@ import com.example.myweather.data.network.responses.Hourly
 import java.time.LocalDateTime
 import java.util.concurrent.Executors
 
-class DatabaseRepository(private val database: WeatherDatabase) {
+interface DatabaseRepository {
+    fun insertCurrentWeather(current: Current)
+    fun logCurrentWeather()
+    fun insertDailyWeather(daily: Daily)
+    fun logDailyWeather()
+    fun insertHourlyWeather(hourly: Hourly, currentTime: String)
+    fun logHourlyWeather()
+}
+
+class DatabaseRepositoryImpl(private val database: WeatherDatabase) : DatabaseRepository {
 
     private val executor = Executors.newSingleThreadExecutor()
 
-    fun insertCurrentWeather(current: Current) {
+    override fun insertCurrentWeather(current: Current) {
         executor.execute {
             try {
-                Log.d("WeatherApp", "insertCurrentWeather is running on thread: ${Thread.currentThread().name}")
+                //Log.d("WeatherApp", "insertCurrentWeather is running on thread: ${Thread.currentThread().name}")
                 val weatherDao = database.weatherDao()
                 weatherDao.clearCurrentWeather()
                 val entity = CurrentWeatherEntity(
@@ -39,7 +48,7 @@ class DatabaseRepository(private val database: WeatherDatabase) {
         }
     }
 
-    fun logCurrentWeather() {
+    override fun logCurrentWeather() {
         executor.execute {
             try {
                 val weatherDao = database.weatherDao()
@@ -63,15 +72,14 @@ class DatabaseRepository(private val database: WeatherDatabase) {
         }
     }
 
-    fun insertDailyWeather(daily: Daily) {
+    override fun insertDailyWeather(daily: Daily) {
         executor.execute {
             try {
-                Log.d("WeatherApp", "insertDailyWeather is running on thread: ${Thread.currentThread().name}")
+                //Log.d("WeatherApp", "insertDailyWeather is running on thread: ${Thread.currentThread().name}")
                 val weatherDao = database.weatherDao()
 
                 // Clear existing entries
                 weatherDao.clearDailyWeather()
-                Log.d("WeatherApp", "Daily weather table cleared")
 
                 // Prepare and insert new entries
                 val entities = daily.time.indices.map { i ->
@@ -93,7 +101,7 @@ class DatabaseRepository(private val database: WeatherDatabase) {
         }
     }
 
-    fun logDailyWeather() {
+    override fun logDailyWeather() {
         executor.execute {
             try {
                 val weatherDao = database.weatherDao()
@@ -119,15 +127,14 @@ class DatabaseRepository(private val database: WeatherDatabase) {
         }
     }
 
-    fun insertHourlyWeather(hourly: Hourly, currentTime: String) {
+    override fun insertHourlyWeather(hourly: Hourly, currentTime: String) {
         executor.execute {
             try {
-                Log.d("WeatherApp", "insertHourlyWeather is running on thread: ${Thread.currentThread().name}")
+                //Log.d("WeatherApp", "insertHourlyWeather is running on thread: ${Thread.currentThread().name}")
                 val weatherDao = database.weatherDao()
 
                 // Clear existing entries
                 weatherDao.clearHourlyWeather()
-                Log.d("WeatherApp", "Hourly weather table cleared")
 
                 // Prepare and filter data for the next 24 hours
                 val currentDateTime = LocalDateTime.parse(currentTime)
@@ -156,7 +163,7 @@ class DatabaseRepository(private val database: WeatherDatabase) {
         }
     }
 
-    fun logHourlyWeather() {
+    override fun logHourlyWeather() {
         executor.execute {
             try {
                 val weatherDao = database.weatherDao()

@@ -4,7 +4,11 @@ import com.example.myweather.data.network.services.AddressNameService
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class CityNameRepository {
+interface CityNameRepository {
+    suspend fun fetchCityName(latitude: Double, longitude: Double, reverseGeocodeApiKey: String): String?
+}
+
+class CityNameRepositoryImpl : CityNameRepository {
 
     private val addressNameService: AddressNameService
 
@@ -16,7 +20,7 @@ class CityNameRepository {
         addressNameService = retrofit.create(AddressNameService::class.java)
     }
 
-    suspend fun fetchCityName(latitude: Double, longitude: Double, reverseGeocodeApiKey: String): String? {
+    override suspend fun fetchCityName(latitude: Double, longitude: Double, reverseGeocodeApiKey: String): String? {
         return try {
             val response = addressNameService.getAddressName(latitude, longitude, reverseGeocodeApiKey)
             val address = response.address

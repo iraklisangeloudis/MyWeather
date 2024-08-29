@@ -51,11 +51,11 @@ class WeatherViewModel(
     private fun saveWeatherData(weather: WeatherResponse) {
         viewModelScope.launch {
             databaseRepository.insertCurrentWeather(weather.current)
-            databaseRepository.logCurrentWeather()
             databaseRepository.insertDailyWeather(weather.daily)
-            databaseRepository.logDailyWeather()
             databaseRepository.insertHourlyWeather(weather.hourly, weather.current.time)
-            databaseRepository.logHourlyWeather()
+            //databaseRepository.logCurrentWeather()
+            //databaseRepository.logDailyWeather()
+            //databaseRepository.logHourlyWeather()
         }
     }
 
