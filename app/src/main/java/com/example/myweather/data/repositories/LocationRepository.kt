@@ -5,7 +5,11 @@ import com.example.myweather.data.network.services.LocationIQService
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class LocationRepository {
+interface LocationRepository {
+    suspend fun getAutocomplete(query: String, apiKey: String): List<LocationResponse>?
+}
+
+class LocationRepositoryImpl : LocationRepository {
 
     private val locationIQService: LocationIQService
 
@@ -17,7 +21,7 @@ class LocationRepository {
         locationIQService = retrofit.create(LocationIQService::class.java)
     }
 
-    suspend fun getAutocomplete(query: String, apiKey: String): List<LocationResponse>? {
+    override suspend fun getAutocomplete(query: String, apiKey: String): List<LocationResponse>? {
         return try {
             locationIQService.getAutocomplete(apiKey, query)
         } catch (e: Exception) {

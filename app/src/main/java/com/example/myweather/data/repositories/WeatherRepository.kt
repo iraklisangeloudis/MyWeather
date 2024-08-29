@@ -5,7 +5,11 @@ import com.example.myweather.data.network.services.WeatherService
 import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 
-class WeatherRepository {
+interface WeatherRepository {
+    suspend fun fetchWeatherData(latitude: Double, longitude: Double): WeatherResponse?
+}
+
+class WeatherRepositoryImpl : WeatherRepository {
 
     private val weatherService: WeatherService
 
@@ -17,7 +21,7 @@ class WeatherRepository {
         weatherService = retrofit.create(WeatherService::class.java)
     }
 
-    suspend fun fetchWeatherData(
+    override suspend fun fetchWeatherData(
         latitude: Double,
         longitude: Double
     ): WeatherResponse? {
