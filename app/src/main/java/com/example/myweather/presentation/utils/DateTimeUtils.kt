@@ -1,4 +1,4 @@
-package com.example.myweather.utils
+package com.example.myweather.presentation.utils
 
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter

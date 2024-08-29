@@ -1,4 +1,4 @@
-package com.example.myweather.domain
+package com.example.myweather.presentation
 
 // Helper class
 // Used in Recycler View updates
