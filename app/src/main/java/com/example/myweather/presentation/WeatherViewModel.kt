@@ -31,21 +31,13 @@ class WeatherViewModel(
             _weatherState.value = WeatherState.Loading
             val weatherResponse = weatherApiRepository.fetchWeatherData(latitude, longitude)
             weatherResponse?.let {
-                handleWeatherResponse(it)
+                _weatherState.value = WeatherState.Success(it)
                 weatherPreferences.saveWeatherData(it.current, it.hourly, it.daily)
                 saveWeatherData(it)
             } ?: run {
-                handleWeatherFailure()
+                _weatherState.value = WeatherState.Error("Failed to fetch weather data")
             }
         }
-    }
-
-    private fun handleWeatherResponse(response: WeatherResponse) {
-        _weatherState.value = WeatherState.Success(response)
-    }
-
-    private fun handleWeatherFailure() {
-        _weatherState.value = WeatherState.Error("Failed to fetch weather data")
     }
 
     private fun saveWeatherData(weather: WeatherResponse) {
