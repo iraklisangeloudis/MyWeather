@@ -236,15 +236,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateHourlyWeatherUI(hourlyWeather: Hourly, currentTime: String) {
         val currentDateTime = LocalDateTime.parse(currentTime)
-        val hourlyData = hourlyWeather.time.zip(hourlyWeather.temperature.zip(hourlyWeather.weatherCode.zip(hourlyWeather.isDay))) { time, triple ->
-            val (temperature, pair) = triple
-            val (weatherCode, isDay) = pair
-            HourlyData(time, temperature, weatherCode, isDay)
-        }.filter { data ->
-            LocalDateTime.parse(data.time).isAfter(currentDateTime)
-        }.take(24) // Take the 24 hours after the current time
 
+        // Combine the hourly weather data into a list of HourlyData objects
+        val hourlyData = hourlyWeather.time.indices.map { index ->
+            HourlyData(
+                time = hourlyWeather.time[index],
+                temperature = hourlyWeather.temperature[index],
+                weatherCode = hourlyWeather.weatherCode[index],
+                isDay = hourlyWeather.isDay[index]
+            )
+        }
+            // Filter to include only data after the current time
+            .filter { data -> LocalDateTime.parse(data.time).isAfter(currentDateTime) }
+            // Take the next 24 hours of data
+            .take(24)
+
+        // Create the adapter with the filtered hourly data
         val temperatureAdapter = TemperatureAdapter(hourlyData)
+
+        // Update UI elements with the new adapter
         binding.recyclerViewTemperatures.adapter = temperatureAdapter
         binding.recyclerViewTemperatures.visibility = View.VISIBLE
     }
