@@ -148,7 +148,6 @@ class MainActivity : AppCompatActivity() {
             binding.thirdLayout,
             binding.dailyWeatherLayout
         )
-
         views.forEach { it.visibility = visibility }
     }
 
@@ -251,11 +250,14 @@ class MainActivity : AppCompatActivity() {
             // Take the next 24 hours of data
             .take(24)
 
-        // Create the adapter with the filtered hourly data
-        val temperatureAdapter = TemperatureAdapter(hourlyData)
-
-        // Update UI elements with the new adapter
-        binding.recyclerViewTemperatures.adapter = temperatureAdapter
+        val adapter = binding.recyclerViewTemperatures.adapter as? TemperatureAdapter
+        if (adapter == null) {
+            // Create a new adapter if it doesn't exist
+            binding.recyclerViewTemperatures.adapter = TemperatureAdapter(hourlyData)
+        } else {
+            // Update the existing adapter's data
+            adapter.updateData(hourlyData)
+        }
         binding.recyclerViewTemperatures.visibility = View.VISIBLE
     }
 

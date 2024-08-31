@@ -5,12 +5,13 @@ import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.RecyclerView
 import com.example.myweather.R
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
-class TemperatureAdapter(private val hourlyData: List<HourlyData>) : RecyclerView.Adapter<TemperatureAdapter.ViewHolder>() {
+class TemperatureAdapter(private var hourlyData: List<HourlyData>) : RecyclerView.Adapter<TemperatureAdapter.ViewHolder>() {
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val timeTextView: TextView = view.findViewById(R.id.textViewItemTime)
@@ -57,5 +58,25 @@ class TemperatureAdapter(private val hourlyData: List<HourlyData>) : RecyclerVie
             96, 99 -> R.drawable.tshower
             else -> R.drawable.unknown
         }
+    }
+
+    // function to update data using DiffUtil
+    fun updateData(newData: List<HourlyData>) {
+        val diffCallback = object : DiffUtil.Callback() {
+            override fun getOldListSize() = hourlyData.size
+            override fun getNewListSize() = newData.size
+
+            override fun areItemsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+                return hourlyData[oldItemPosition].time == newData[newItemPosition].time
+            }
+
+            override fun areContentsTheSame(oldItemPosition: Int, newItemPosition: Int): Boolean {
+                return hourlyData[oldItemPosition] == newData[newItemPosition]
+            }
+        }
+
+        val diffResult = DiffUtil.calculateDiff(diffCallback)
+        hourlyData = newData
+        diffResult.dispatchUpdatesTo(this)
     }
 }
