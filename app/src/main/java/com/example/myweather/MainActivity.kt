@@ -28,6 +28,7 @@ import com.example.myweather.data.network.responses.*
 import com.example.myweather.data.preferences.WeatherPreferences
 import com.example.myweather.data.repositories.*
 import com.example.myweather.presentation.*
+import com.example.myweather.presentation.adapter.TemperatureAdapter
 import com.example.myweather.presentation.utils.DateTimeUtils.formattedDateTime
 import com.example.myweather.presentation.utils.LocationHandler.getLocation
 import com.example.myweather.presentation.utils.LocationHandler.requestLocationPermission
@@ -36,6 +37,11 @@ import com.example.myweather.presentation.utils.LocationHandler.isLocationEnable
 import com.example.myweather.presentation.utils.WeatherTheme.changeTheme
 import com.example.myweather.presentation.utils.WeatherTheme.getWeatherIcon
 import com.example.myweather.presentation.utils.DailyWeatherUtils.addWeatherData
+import com.example.myweather.presentation.viewmodel.CityNameState
+import com.example.myweather.presentation.viewmodel.LocationState
+import com.example.myweather.presentation.viewmodel.WeatherState
+import com.example.myweather.presentation.viewmodel.WeatherViewModel
+import com.example.myweather.presentation.viewmodel.WeatherViewModelFactory
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
