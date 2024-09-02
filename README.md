@@ -41,7 +41,7 @@ MyWeather is an intuitive weather application for Android, built using Kotlin an
 
 ## Configuration
 
-1. **Create a new file in the root of your project named apiKeys.properties**
+1. **Create a new file in the root of your project named `apiKeys.properties`**
 
 2. **Open `apiKeys.properties` and add your API keys:**
     ```properties
