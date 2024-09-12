@@ -9,8 +9,10 @@ import com.example.myweather.presentation.HourlyData
 import com.example.myweather.data.network.responses.Current
 import com.example.myweather.data.network.responses.Daily
 import com.example.myweather.data.network.responses.Hourly
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
-import java.util.concurrent.Executors
 
 interface DatabaseRepository {
     fun insertCurrentWeather(current: Current)
@@ -23,10 +25,10 @@ interface DatabaseRepository {
 
 class DatabaseRepositoryImpl(private val database: WeatherDatabase) : DatabaseRepository {
 
-    private val executor = Executors.newSingleThreadExecutor()
+    private val repositoryScope = CoroutineScope(Dispatchers.IO)
 
     override fun insertCurrentWeather(current: Current) {
-        executor.execute {
+        repositoryScope.launch {
             try {
                 //Log.d("WeatherApp", "insertCurrentWeather is running on thread: ${Thread.currentThread().name}")
                 val weatherDao = database.weatherDao()
@@ -49,7 +51,7 @@ class DatabaseRepositoryImpl(private val database: WeatherDatabase) : DatabaseRe
     }
 
     override fun logCurrentWeather() {
-        executor.execute {
+        repositoryScope.launch {
             try {
                 val weatherDao = database.weatherDao()
                 val currentWeather = weatherDao.getCurrentWeather()
@@ -73,7 +75,7 @@ class DatabaseRepositoryImpl(private val database: WeatherDatabase) : DatabaseRe
     }
 
     override fun insertDailyWeather(daily: Daily) {
-        executor.execute {
+        repositoryScope.launch {
             try {
                 //Log.d("WeatherApp", "insertDailyWeather is running on thread: ${Thread.currentThread().name}")
                 val weatherDao = database.weatherDao()
@@ -102,7 +104,7 @@ class DatabaseRepositoryImpl(private val database: WeatherDatabase) : DatabaseRe
     }
 
     override fun logDailyWeather() {
-        executor.execute {
+        repositoryScope.launch {
             try {
                 val weatherDao = database.weatherDao()
                 val dailyWeatherList = weatherDao.getDailyWeather()
@@ -128,7 +130,7 @@ class DatabaseRepositoryImpl(private val database: WeatherDatabase) : DatabaseRe
     }
 
     override fun insertHourlyWeather(hourly: Hourly, currentTime: String) {
-        executor.execute {
+        repositoryScope.launch {
             try {
                 //Log.d("WeatherApp", "insertHourlyWeather is running on thread: ${Thread.currentThread().name}")
                 val weatherDao = database.weatherDao()
@@ -164,7 +166,7 @@ class DatabaseRepositoryImpl(private val database: WeatherDatabase) : DatabaseRe
     }
 
     override fun logHourlyWeather() {
-        executor.execute {
+        repositoryScope.launch {
             try {
                 val weatherDao = database.weatherDao()
                 val hourlyWeatherList = weatherDao.getHourlyWeather()

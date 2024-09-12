@@ -45,9 +45,9 @@ class WeatherViewModel(
             databaseRepository.insertCurrentWeather(weather.current)
             databaseRepository.insertDailyWeather(weather.daily)
             databaseRepository.insertHourlyWeather(weather.hourly, weather.current.time)
-            //databaseRepository.logCurrentWeather()
-            //databaseRepository.logDailyWeather()
-            //databaseRepository.logHourlyWeather()
+//            databaseRepository.logCurrentWeather()
+//            databaseRepository.logDailyWeather()
+//            databaseRepository.logHourlyWeather()
         }
     }
 
