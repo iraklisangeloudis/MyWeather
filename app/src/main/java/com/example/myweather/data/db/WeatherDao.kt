@@ -9,29 +9,29 @@ import com.example.myweather.data.db.entities.*
 @Dao
 interface WeatherDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertCurrentWeather(weather: CurrentWeatherEntity)
+    suspend fun insertCurrentWeather(weather: CurrentWeatherEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertHourlyWeather(weather: List<HourlyWeatherEntity>)
+    suspend fun insertHourlyWeather(weather: List<HourlyWeatherEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
-    fun insertDailyWeather(weather: List<DailyWeatherEntity>)
+    suspend fun insertDailyWeather(weather: List<DailyWeatherEntity>)
 
     @Query("SELECT * FROM current_weather")
-    fun getCurrentWeather(): CurrentWeatherEntity?
+    suspend fun getCurrentWeather(): CurrentWeatherEntity?
 
     @Query("DELETE FROM current_weather")
-    fun clearCurrentWeather()
+    suspend fun clearCurrentWeather()
 
     @Query("SELECT * FROM hourly_weather")
-    fun getHourlyWeather(): List<HourlyWeatherEntity>
+    suspend fun getHourlyWeather(): List<HourlyWeatherEntity>
 
     @Query("DELETE FROM hourly_weather")
-    fun clearHourlyWeather()
+    suspend fun clearHourlyWeather()
 
     @Query("SELECT * FROM daily_weather")
-    fun getDailyWeather(): List<DailyWeatherEntity>
+    suspend fun getDailyWeather(): List<DailyWeatherEntity>
 
     @Query("DELETE FROM daily_weather")
-    fun clearDailyWeather()
+    suspend fun clearDailyWeather()
 }
