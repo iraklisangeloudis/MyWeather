@@ -13,7 +13,9 @@ class WeatherViewModel(
     private val weatherApiRepository: WeatherRepository,
     private val cityNameRepository: CityNameRepository,
     private val weatherPreferences: WeatherPreferences,
-    private val databaseRepository: DatabaseRepository,
+    private val currentWeatherRepository: CurrentWeatherRepository,
+    private val dailyWeatherRepository: DailyWeatherRepository,
+    private val hourlyWeatherRepository: HourlyWeatherRepository,
     private val locationRepository: LocationRepository
 ) : ViewModel() {
 
@@ -42,12 +44,13 @@ class WeatherViewModel(
 
     private fun saveWeatherData(weather: WeatherResponse) {
         viewModelScope.launch {
-            databaseRepository.insertCurrentWeather(weather.current)
-            databaseRepository.insertDailyWeather(weather.daily)
-            databaseRepository.insertHourlyWeather(weather.hourly, weather.current.time)
-//            databaseRepository.logCurrentWeather()
-//            databaseRepository.logDailyWeather()
-//            databaseRepository.logHourlyWeather()
+            currentWeatherRepository.insertCurrentWeather(weather.current)
+            dailyWeatherRepository.insertDailyWeather(weather.daily)
+            hourlyWeatherRepository.insertHourlyWeather(weather.hourly, weather.current.time)
+
+//            currentWeatherRepository.logCurrentWeather()
+//            dailyWeatherRepository.logDailyWeather()
+//            hourlyWeatherRepository.logHourlyWeather()
         }
     }
 

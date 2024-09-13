@@ -43,7 +43,9 @@ class MainActivity : AppCompatActivity() {
             weatherRepository,
             cityNameRepository,
             weatherPreferences,
-            DatabaseRepositoryImpl(WeatherDatabase.getDatabase(this)),
+            CurrentWeatherRepositoryImpl(WeatherDatabase.getDatabase(this).currentWeatherDao()),
+            DailyWeatherRepositoryImpl(WeatherDatabase.getDatabase(this).dailyWeatherDao()),
+            HourlyWeatherRepositoryImpl(WeatherDatabase.getDatabase(this).hourlyWeatherDao()),
             locationRepository
         )
     }
