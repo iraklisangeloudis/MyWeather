@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import com.example.myweather.data.network.responses.*
 import com.example.myweather.data.preferences.WeatherPreferences
 import com.example.myweather.data.repositories.*
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
 class WeatherViewModel(
@@ -29,21 +30,21 @@ class WeatherViewModel(
     val locationState: LiveData<LocationState> = _locationState
 
     fun fetchWeather(latitude: Double, longitude: Double) {
-        viewModelScope.launch {
-            _weatherState.value = WeatherState.Loading
+        viewModelScope.launch(Dispatchers.IO) {
+            _weatherState.postValue(WeatherState.Loading)
             val weatherResponse = weatherApiRepository.fetchWeatherData(latitude, longitude)
             weatherResponse?.let {
-                _weatherState.value = WeatherState.Success(it)
+                _weatherState.postValue(WeatherState.Success(it))
                 weatherPreferences.saveWeatherData(it.current, it.hourly, it.daily)
                 saveWeatherData(it)
             } ?: run {
-                _weatherState.value = WeatherState.Error("Failed to fetch weather data")
+                _weatherState.postValue(WeatherState.Error("Failed to fetch weather data"))
             }
         }
     }
 
     private fun saveWeatherData(weather: WeatherResponse) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             currentWeatherRepository.insertCurrentWeather(weather.current)
             dailyWeatherRepository.insertDailyWeather(weather.daily)
             hourlyWeatherRepository.insertHourlyWeather(weather.hourly, weather.current.time)
@@ -55,23 +56,23 @@ class WeatherViewModel(
     }
 
     fun fetchCityName(latitude: Double, longitude: Double, reverseGeocodeApiKey: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val cityName = cityNameRepository.fetchCityName(latitude, longitude, reverseGeocodeApiKey)
             cityName?.let {
-                _cityNameState.value = CityNameState.Success(it)
+                _cityNameState.postValue(CityNameState.Success(it))
             } ?: run {
-                _cityNameState.value = CityNameState.Error("Failed to load city name")
+                _cityNameState.postValue(CityNameState.Error("Failed to load city name"))
             }
         }
     }
 
     fun getAutocomplete(query: String, apiKey: String) {
-        viewModelScope.launch {
+        viewModelScope.launch(Dispatchers.IO) {
             val locations = locationRepository.getAutocomplete(query, apiKey)
             locations?.let {
-                _locationState.value = LocationState.Success(locations)
+                _locationState.postValue(LocationState.Success(locations))
             } ?: run {
-                _locationState.value = LocationState.Error("Failed to load location data")
+                _locationState.postValue(LocationState.Error("Failed to load location data"))
             }
         }
     }
