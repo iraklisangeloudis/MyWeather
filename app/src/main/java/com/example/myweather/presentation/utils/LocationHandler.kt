@@ -11,15 +11,12 @@ import android.location.LocationManager
 import android.os.Bundle
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.suspendCancellableCoroutine
+import kotlinx.coroutines.withContext
+import kotlin.coroutines.resume
 
 object LocationHandler {
-    fun isLocationPermissionGranted(context: Context): Boolean {
-        return ContextCompat.checkSelfPermission(
-            context,
-            Manifest.permission.ACCESS_FINE_LOCATION
-        ) == PackageManager.PERMISSION_GRANTED
-    }
-
     fun requestLocationPermission(activity: Activity, requestCode: Int) {
         //Request permission to use location the first time the app is downloaded
         ActivityCompat.requestPermissions(
@@ -29,18 +26,22 @@ object LocationHandler {
         )
     }
 
-    fun isLocationEnabled(context: Context): Boolean {
+    suspend fun isLocationPermissionGranted(context: Context): Boolean = withContext(Dispatchers.IO) {
+        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    }
+
+    suspend fun isLocationEnabled(context: Context): Boolean = withContext(Dispatchers.IO) {
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+        locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
                 locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
     }
 
     @SuppressLint("MissingPermission")
-    fun getLocation(context: Context, callback: (Location?) -> Unit) {
+    suspend fun getLocation(context: Context): Location? = suspendCancellableCoroutine { continuation ->
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
-                callback(location)
+                continuation.resume(location)  // Resume the coroutine with the location
                 locationManager.removeUpdates(this)
             }
 
@@ -55,5 +56,9 @@ object LocationHandler {
             0f,
             locationListener
         )
+
+        continuation.invokeOnCancellation {
+            locationManager.removeUpdates(locationListener)
+        }
     }
 }
