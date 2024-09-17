@@ -18,6 +18,9 @@ import com.example.myweather.presentation.utils.LocationHandler
 import com.example.myweather.presentation.utils.DailyWeatherUtils
 import com.example.myweather.presentation.utils.WeatherTheme
 import com.example.myweather.presentation.viewmodel.WeatherViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.time.LocalDateTime
 
 class WeatherUiController(
@@ -226,30 +229,49 @@ class WeatherUiController(
     }
 
     fun checkLocationAndFetchData() {
-        showLoading(isLoading = true)
+        CoroutineScope(Dispatchers.Main).launch {
+            showLoading(isLoading = true)
 
-        // Check if location permissions are granted
-        if (LocationHandler.isLocationPermissionGranted(context)) {
-            // Check if location services are enabled
-            if (LocationHandler.isLocationEnabled(context)) {
-                // Fetch the current location
-                LocationHandler.getLocation(context) { location ->
-                    location?.let {
-                        viewModel.fetchWeather(it.latitude, it.longitude)
-                        viewModel.fetchCityName(it.latitude, it.longitude, reverseGeocodeApiKey)
-                    } ?: run {
-                        Toast.makeText(context, "Unable to get location", Toast.LENGTH_SHORT).show()
-                        showLoading(isLoading = false)
+            // Check if location permissions are granted
+            if (LocationHandler.isLocationPermissionGranted(context)) {
+                // Check if location services are enabled
+                if (LocationHandler.isLocationEnabled(context)) {
+                    // Use coroutines to fetch the location asynchronously
+                    CoroutineScope(Dispatchers.Main).launch {
+                        try {
+                            val location = LocationHandler.getLocation(context)
+                            location?.let {
+                                // Fetch weather and city name based on location
+                                viewModel.fetchWeather(it.latitude, it.longitude)
+                                viewModel.fetchCityName(it.latitude, it.longitude, reverseGeocodeApiKey)
+                            } ?: run {
+                                // Handle case where location is null
+                                Toast.makeText(context, "Unable to get location", Toast.LENGTH_SHORT)
+                                    .show()
+                                showLoading(isLoading = false)
+                            }
+                        } catch (e: Exception) {
+                            // Handle errors during location fetching
+                            Toast.makeText(
+                                context,
+                                "Error getting location: ${e.message}",
+                                Toast.LENGTH_SHORT
+                            ).show()
+                            showLoading(isLoading = false)
+                        }
                     }
+                } else {
+                    Toast.makeText(context, "Location disabled", Toast.LENGTH_SHORT).show()
+                    showLoading(isLoading = false)
                 }
             } else {
-                Toast.makeText(context, "Location disabled", Toast.LENGTH_SHORT).show()
+                Toast.makeText(context, "Location permission not granted", Toast.LENGTH_SHORT).show()
                 showLoading(isLoading = false)
+                LocationHandler.requestLocationPermission(
+                    context as Activity,
+                    LOCATION_PERMISSION_REQUEST_CODE
+                )
             }
-        } else {
-            Toast.makeText(context, "Location permission not granted", Toast.LENGTH_SHORT).show()
-            showLoading(isLoading = false)
-            LocationHandler.requestLocationPermission(context as Activity, LOCATION_PERMISSION_REQUEST_CODE)
         }
     }
 }
