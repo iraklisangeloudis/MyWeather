@@ -69,12 +69,12 @@ class MainActivity : AppCompatActivity() {
         setupTheme()
         setupViewModelObserver()
         setupListeners()
+        // Load data from shared preferences
+        uiController.loadSavedWeatherData()
     }
 
     override fun onStart() {
         super.onStart()
-        // Load data from shared preferences
-        uiController.loadSavedWeatherData()
         // Trigger onRequestPermissionsResult
         requestLocationPermission(this, LOCATION_PERMISSION_REQUEST_CODE)
     }
