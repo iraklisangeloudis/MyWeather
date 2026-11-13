@@ -24,12 +24,12 @@ class GetWeatherForecastUseCase(
                 .take(24)
                 .map { HourlyForecast(hourly.time[it], hourly.temperature[it], hourly.weatherCode[it], hourly.isDay[it]) }
                 .toList()
-            val dayName = currentTime.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
             val daylight = runCatching {
                 Duration.between(LocalDateTime.parse(daily.sunrise.first()), LocalDateTime.parse(daily.sunset.first())).toMinutes().takeIf { it >= 0 }
             }.getOrNull()
-            val updatedAt = "$dayName, ${currentTime.format(DateTimeFormatter.ofPattern("HH:mm"))}"
-            WeatherForecastDetails(forecast.current, updatedAt, nextHours,
+            val timestampPattern = if (currentTime.toLocalDate() == today) "HH:mm" else "d MMM, HH:mm"
+            val weatherAsOf = currentTime.format(DateTimeFormatter.ofPattern(timestampPattern, Locale.ENGLISH))
+            WeatherForecastDetails(forecast.current, weatherAsOf, nextHours,
                 daily.time.indices.map { i ->
                     val date = LocalDate.parse(daily.time[i])
                     val label = if (date == today) "Today" else date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)

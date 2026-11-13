@@ -15,5 +15,12 @@ class GetWeatherForecastUseCaseTest {
         assertEquals("2026-11-14T12:00", forecastDetails.hourly.last().time)
         assertEquals("Today", forecastDetails.daily.single().day)
         assertEquals("07:00", forecastDetails.sunrise)
+        assertEquals("12:15", forecastDetails.weatherAsOf)
     }
+    @Test
+    fun olderWeatherIncludesItsDateInsteadOfLookingFresh() = runBlocking {
+        val forecastDetails = GetWeatherForecastUseCase()(forecast(), LocalDate.parse("2026-11-14"))
+        assertEquals("13 Nov, 12:15", forecastDetails.weatherAsOf)
+    }
+
 }

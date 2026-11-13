@@ -284,7 +284,7 @@ class WeatherUI(
         binding.textViewWindSpeed.text = context.getString(R.string.wind_value, current.windSpeed)
         binding.textViewFeelsLike.text = context.getString(R.string.temperature_value, current.apparentTemperature)
         WeatherTheme.bindIcon(binding.imageViewWeather, current.weatherCode, current.isDay)
-        binding.textViewTime.text = context.getString(R.string.updated_at, weather.updatedAt)
+        binding.textViewTime.text = context.getString(R.string.weather_as_of, weather.weatherAsOf)
         (binding.recyclerViewTemperatures.adapter as TemperatureAdapter).submitList(weather.hourly)
         binding.sunRiseTextView.text = weather.sunrise
         binding.sunSetTextView.text = weather.sunset
