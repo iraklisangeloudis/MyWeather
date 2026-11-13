@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="weather_sky">#17263F</color>
+    <color name="weather_canvas">#101C30</color>
+    <color name="weather_surface">#263850</color>
+    <color name="weather_ink">#EBF2FA</color>
+    <color name="weather_muted">#B3C5DB</color>
+    <color name="weather_accent">#9CC8EB</color>
+    <color name="weather_warm">#E9BC78</color>
+    <color name="weather_line">#3B506A</color>
+</resources>

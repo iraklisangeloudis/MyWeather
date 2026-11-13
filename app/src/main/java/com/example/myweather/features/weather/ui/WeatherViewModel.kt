@@ -36,7 +36,7 @@ class WeatherViewModel(
             .onStart {
                 try {
                     weatherRepository.getCachedWeather()?.let { cached ->
-                        emit(WeatherUpdate.Content(getWeatherForecast(cached), ""))
+                        emit(WeatherUpdate.Content(getWeatherForecast(cached), cached.locationName))
                     }
                 } catch (e: kotlinx.coroutines.CancellationException) {
                     throw e
@@ -68,7 +68,7 @@ class WeatherViewModel(
                 if (update.query == searchQuery.value) {
                     _viewState.update { state ->
                         state.copy(searchQuery = update.query, isSearching = update.isSearching,
-                            suggestions = update.suggestions,
+                            suggestions = update.suggestions, searchFailed = update.failed,
                             message = if (update.failed) "Failed to load location data" else state.message)
                     }
                 }
@@ -98,12 +98,21 @@ class WeatherViewModel(
                 is ForecastUpdate.Content -> WeatherUpdate.Content(weather.weather, name)
                 ForecastUpdate.Failed -> WeatherUpdate.Failed
             }
-        }.distinctUntilChanged()
+        }.distinctUntilChanged().onEach { update ->
+            if (update is WeatherUpdate.Content && update.cityName.isNotBlank()) {
+                // The coordinate guard prevents a delayed label from naming a different cached place.
+                runCatching { weatherRepository.updateLocationName(coordinates.latitude, coordinates.longitude, update.cityName) }
+                    .onFailure { error ->
+                        if (error is kotlinx.coroutines.CancellationException) throw error
+                        Log.w("WeatherViewModel", requestFailureMessage(error))
+                    }
+            }
+        }
     }
 
     fun selectLocation(latitude: Double, longitude: Double) {
         searchLocations("")
-        _viewState.update { it.copy(isLocating = false, message = null) }
+        _viewState.update { it.copy(isLocating = false, isRefreshing = true, message = null) }
         selections.tryEmit(Coordinates(latitude, longitude))
     }
 
@@ -111,7 +120,7 @@ class WeatherViewModel(
         val text = query.trim()
         if (text == searchQuery.value) return
         searchQuery.value = text
-        _viewState.update { it.copy(searchQuery = text, suggestions = emptyList(), isSearching = text.isNotEmpty()) }
+        _viewState.update { it.copy(searchQuery = text, suggestions = emptyList(), isSearching = text.isNotEmpty(), searchFailed = false) }
     }
 
     fun locationLookupStarted() {

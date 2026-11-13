@@ -1,6 +1,7 @@
 package com.example.myweather.features.weather.domain
 
 import com.example.myweather.features.weather.domain.model.*
+import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -24,13 +25,16 @@ class GetWeatherForecastUseCase(
                 .map { HourlyForecast(hourly.time[it], hourly.temperature[it], hourly.weatherCode[it], hourly.isDay[it]) }
                 .toList()
             val dayName = currentTime.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
+            val daylight = runCatching {
+                Duration.between(LocalDateTime.parse(daily.sunrise.first()), LocalDateTime.parse(daily.sunset.first())).toMinutes().takeIf { it >= 0 }
+            }.getOrNull()
             val updatedAt = "$dayName, ${currentTime.format(DateTimeFormatter.ofPattern("HH:mm"))}"
             WeatherForecastDetails(forecast.current, updatedAt, nextHours,
                 daily.time.indices.map { i ->
                     val date = LocalDate.parse(daily.time[i])
                     val label = if (date == today) "Today" else date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
-                    DailyForecast(label, daily.precipitationProbabilityMax[i], daily.temperatureMax[i], daily.temperatureMin[i])
+                    DailyForecast(label, daily.precipitationProbabilityMax[i], daily.temperatureMax[i], daily.temperatureMin[i], daily.weatherCode[i])
                 }, daily.sunrise.firstOrNull()?.substringAfter('T') ?: "-",
-                daily.sunset.firstOrNull()?.substringAfter('T') ?: "-")
+                daily.sunset.firstOrNull()?.substringAfter('T') ?: "-", forecast.locationName, daylight)
         }
 }

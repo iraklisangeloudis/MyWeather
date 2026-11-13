@@ -34,10 +34,9 @@ class TemperatureAdapter : ListAdapter<HourlyForecast, TemperatureAdapter.ViewHo
         val data = getItem(position)
         holder.timeTextView.text = data.time.substringAfter('T')
 
-        holder.temperatureTextView.text = "${data.temperature}°C"
+        holder.temperatureTextView.text = holder.itemView.context.getString(R.string.temperature_value, data.temperature)
 
-        val weatherIconResId = WeatherTheme.getWeatherIcon(weatherCode = data.weatherCode, isDay = data.isDay)
-        holder.weatherImageView.setImageResource(weatherIconResId)
+        WeatherTheme.bindIcon(holder.weatherImageView, data.weatherCode, data.isDay)
     }
 
 }

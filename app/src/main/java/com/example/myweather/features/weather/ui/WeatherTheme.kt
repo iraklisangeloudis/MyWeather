@@ -1,30 +1,10 @@
 package com.example.myweather.features.weather.ui
 
-import android.content.Context
-import android.view.Window
-import android.widget.RelativeLayout
+import android.widget.ImageView
 import androidx.core.content.ContextCompat
 import com.example.myweather.R
 
 object WeatherTheme {
-    fun changeTheme(weatherCode: Int, isDay:Int, context: Context, window: Window, mainLayout: RelativeLayout) {
-        if(weatherCode in 45..77 || weatherCode in 95..99){
-            window.statusBarColor = ContextCompat.getColor(context, R.color.Rain_Blue)
-            window.navigationBarColor = ContextCompat.getColor(context, R.color.Rain_Blue)
-            mainLayout.setBackgroundColor(ContextCompat.getColor(context, R.color.Rain_Blue))
-        }
-        else if(isDay==0){
-            window.statusBarColor = ContextCompat.getColor(context, R.color.Night_Blue)
-            window.navigationBarColor = ContextCompat.getColor(context, R.color.Night_Blue)
-            mainLayout.setBackgroundColor(ContextCompat.getColor(context, R.color.Night_Blue))
-        }
-        else{
-            window.statusBarColor = ContextCompat.getColor(context, R.color.Clear_Day_Blue)
-            window.navigationBarColor = ContextCompat.getColor(context, R.color.Clear_Day_Blue)
-            mainLayout.setBackgroundColor(ContextCompat.getColor(context, R.color.Clear_Day_Blue))
-        }
-    }
-
     fun getWeatherIcon(weatherCode: Int, isDay:Int): Int {
         return when (weatherCode) {
             0 -> if (isDay==1) R.drawable.clear1 else R.drawable.clear0
@@ -42,4 +22,22 @@ object WeatherTheme {
             else -> R.drawable.unknown
         }
     }
+    fun bindIcon(view: ImageView, weatherCode: Int, isDay: Int) {
+        view.setImageResource(getWeatherIcon(weatherCode, isDay))
+        if (weatherCode == 45 || weatherCode == 48) {
+            view.setColorFilter(ContextCompat.getColor(view.context, R.color.weather_muted))
+        } else view.clearColorFilter()
+    }
+
+    fun description(weatherCode: Int, isDay: Int): Int = when (weatherCode) {
+        0 -> if (isDay == 1) R.string.condition_sunny else R.string.condition_clear
+        1, 2, 3 -> R.string.condition_cloudy
+        45, 48 -> R.string.condition_fog
+        in 51..57 -> R.string.condition_drizzle
+        in 61..67, in 80..82 -> R.string.condition_rain
+        in 71..77, 85, 86 -> R.string.condition_snow
+        in 95..99 -> R.string.condition_storm
+        else -> R.string.condition_unknown
+    }
+
 }

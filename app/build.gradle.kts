@@ -54,6 +54,7 @@ android {
 }
 
 dependencies {
+    implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     // Koin 3.5 keeps the existing Kotlin 1.9 toolchain.
     implementation("io.insert-koin:koin-android:3.5.6")
     implementation("com.squareup.retrofit2:retrofit:2.9.0")

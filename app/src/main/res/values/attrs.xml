@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <declare-styleable name="ExpandableWeatherSection">
+        <attr name="compactHeight" format="dimension" />
+        <attr name="compactContentOffset" format="dimension" />
+        <attr name="summaryWhenCompact" format="boolean" />
+    </declare-styleable>
+</resources>

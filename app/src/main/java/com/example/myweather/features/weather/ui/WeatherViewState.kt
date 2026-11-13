@@ -10,6 +10,7 @@ data class WeatherViewState(
     val isLocating: Boolean = false,
     val searchQuery: String = "",
     val isSearching: Boolean = false,
+    val searchFailed: Boolean = false,
     val suggestions: List<LocationSuggestion> = emptyList(),
     val message: String? = null
 ) {

@@ -2,15 +2,19 @@
 <resources>
     <color name="black">#FF000000</color>
     <color name="white">#FFFFFFFF</color>
-
     <color name="blue">#2774AE</color>
     <color name="light_blue">#72A0C1</color>
     <color name="light">#F0F8FF</color>
     <color name="maya_blue">#73C2FB</color>
-
-
     <color name="Clear_Day_Blue">#76ABDF</color>
     <color name="Rain_Blue">#5D8AA8</color>
     <color name="Night_Blue">#2c3968</color>
-
+    <color name="weather_sky">#EAF5FC</color>
+    <color name="weather_canvas">#F8FBFD</color>
+    <color name="weather_surface">#FFFFFF</color>
+    <color name="weather_ink">#24485E</color>
+    <color name="weather_muted">#56758A</color>
+    <color name="weather_accent">#558BAD</color>
+    <color name="weather_warm">#B78338</color>
+    <color name="weather_line">#E5EDF2</color>
 </resources>
