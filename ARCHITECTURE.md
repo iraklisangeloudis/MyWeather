@@ -32,11 +32,11 @@ Room schema version 2 preserves existing data through migration. Cached location
 
 The widget reads Room through the existing repository and forecast use case. Room Flow keeps active Glance sessions current. Successful cache writes enqueue a render worker through a callback wired in Koin; widget scheduling failures do not fail weather saves. Tapping the widget opens MainActivity. Refresh actions use WorkManager and `RefreshSavedWeatherUseCase` with saved coordinates, preserving the location label. No background location permission or device-location lookup is used.
 
-While widgets are installed, unique hourly work refreshes on an available network; Android may defer execution. Removing the last widget cancels widget work. Failed refreshes keep cached weather and show a failure label. Empty or migrated caches without coordinates direct users to the app. Glance 1.1.1 and Compose compiler 1.5.3 retain compatibility with Kotlin 1.9.10; the app screen remains Views/XML.
+While widgets are installed, unique hourly work refreshes on an available network; Android may defer execution. Removing the last widget cancels widget work. Failed refreshes keep cached weather and show a failure label. Empty or migrated caches without coordinates direct users to the app. Glance 1.1.1 uses the Compose compiler Gradle plugin, versioned together with Kotlin at 2.3.21; the app screen remains Views/XML.
 
 ## Verification
 
-Use JDK 17; Gradle's daemon JVM configuration pins it.
+Use JDK 17; Gradle's daemon JVM configuration pins it. Kotlin and its Compose compiler Gradle plugin are both pinned to 2.3.21. Room 2.8.4 processes Kotlin metadata through kapt; the schema remains version 2.
 
 ```shell
 ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug
