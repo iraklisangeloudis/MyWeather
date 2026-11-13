@@ -1,10 +1,10 @@
-package com.example.myweather.data.db.dao
+package com.example.myweather.data.local.db.dao
 
 import androidx.room.Dao
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
-import com.example.myweather.data.db.entities.CurrentWeatherEntity
+import com.example.myweather.data.local.db.entities.CurrentWeatherEntity
 
 @Dao
 interface CurrentWeatherDao {

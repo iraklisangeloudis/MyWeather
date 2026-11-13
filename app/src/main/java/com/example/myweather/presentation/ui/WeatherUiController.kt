@@ -1,37 +1,22 @@
 package com.example.myweather.presentation.ui
 
-import android.app.Activity
 import android.content.Context
 import android.view.View
 import android.view.Window
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
-import android.widget.Toast
-import com.example.myweather.BuildConfig
-import com.example.myweather.data.network.responses.*
-import com.example.myweather.data.preferences.WeatherPreferences
 import com.example.myweather.databinding.ActivityMainBinding
-import com.example.myweather.presentation.HourlyData
+import com.example.myweather.model.LocationSuggestion
 import com.example.myweather.presentation.adapter.TemperatureAdapter
-import com.example.myweather.presentation.utils.DateTimeUtils.formattedDateTime
-import com.example.myweather.presentation.utils.LocationHandler
 import com.example.myweather.presentation.utils.DailyWeatherUtils
 import com.example.myweather.presentation.utils.WeatherTheme
-import com.example.myweather.presentation.viewmodel.WeatherViewModel
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.launch
-import java.time.LocalDateTime
 
 class WeatherUiController(
     private val binding: ActivityMainBinding,
     private val context: Context,
     private val window: Window,
-    private val weatherPreferences: WeatherPreferences,
-    private val viewModel: WeatherViewModel
+    private val onLocationSelected: (LocationSuggestion) -> Unit
 ) {
-    private val reverseGeocodeApiKey = BuildConfig.REVERSE_GEOCODE_API_KEY
-    private val LOCATION_PERMISSION_REQUEST_CODE = 1
 
     // Main visibility handling
     fun showLoading(isLoading: Boolean) {
@@ -74,121 +59,37 @@ class WeatherUiController(
         setMainVisibility(View.VISIBLE)
     }
 
-    // UI Updates
-    fun loadSavedWeatherData() {
-        val sharedPreferences = context.getSharedPreferences("WeatherPrefs", Context.MODE_PRIVATE)
-        if (sharedPreferences.contains("current_weather") &&
-            sharedPreferences.contains("hourly_weather") &&
-            sharedPreferences.contains("daily_weather")
-        ) {
-            loadWeatherDataFromSharedPreferences()
+
+    fun renderWeather(weather: WeatherUiModel) {
+        val current = weather.current
+        binding.apply {
+            textViewTemperature.text = "${current.temperature} 캜"
+            textViewHumidity.text = "${current.humidity} %"
+            textViewWindSpeed.text = "${current.windSpeed} km/h"
+            textViewFeelsLike.text = "${current.apparentTemperature} 캜"
+            imageViewWeather.setImageResource(WeatherTheme.getWeatherIcon(current.weatherCode, current.isDay))
+            textViewTime.text = weather.updatedAt
+            WeatherTheme.changeTheme(current.weatherCode, current.isDay, context, window, mainLayout)
+            (recyclerViewTemperatures.adapter as TemperatureAdapter).submitList(weather.hourly)
+            sunRiseTextView.text = weather.sunrise
+            sunSetTextView.text = weather.sunset
+            dailyWeatherLayout.removeAllViews()
+            weather.daily.forEach { day ->
+                DailyWeatherUtils.addWeatherData(context, dailyWeatherLayout, day.day, day.precipitation, day.maximum, day.minimum)
+            }
         }
-    }
-
-    private fun loadWeatherDataFromSharedPreferences() {
-        val currentWeather = weatherPreferences.getCurrentWeather()
-        val hourlyWeather = weatherPreferences.getHourlyWeather()
-        val dailyWeather = weatherPreferences.getDailyWeather()
-
-        currentWeather?.let {
-            updateCurrentWeatherUI(it)
-        }
-
-        hourlyWeather?.let {
-            updateHourlyWeatherUI(it, currentWeather?.time ?: "")
-        }
-
-        dailyWeather?.let {
-            updateDailyWeatherUI(it)
-        }
-    }
-
-    fun handleWeatherResponse(weather: WeatherResponse) {
-        updateCurrentWeatherUI(weather.current)
-        updateHourlyWeatherUI(weather.hourly, weather.current.time)
-        updateDailyWeatherUI(weather.daily)
-
+        showMain()
         showLoading(false)
         hideKeyboardAndListView()
     }
 
-    private fun updateCurrentWeatherUI(currentWeather: Current) {
-        binding.apply {
-            textViewTemperature.text = "${currentWeather.temperature} 째C"
-            textViewHumidity.text = "${currentWeather.humidity} %"
-            textViewWindSpeed.text = "${currentWeather.windSpeed} km/h"
-            textViewFeelsLike.text = "${currentWeather.apparentTemperature} 째C"
-
-            val weatherIconResId = WeatherTheme.getWeatherIcon(currentWeather.weatherCode, currentWeather.isDay)
-            imageViewWeather.setImageResource(weatherIconResId)
-            textViewTime.text = formattedDateTime(currentWeather.time)
-
-            WeatherTheme.changeTheme(
-                currentWeather.weatherCode,
-                currentWeather.isDay,
-                context,
-                window,
-                mainLayout
-            )
-        }
-    }
-
-    private fun updateHourlyWeatherUI(hourlyWeather: Hourly, currentTime: String) {
-        val currentDateTime = LocalDateTime.parse(currentTime)
-        // Combine the hourly weather data into a list of HourlyData objects
-        val hourlyData = hourlyWeather.time.indices
-            .map { index ->
-                HourlyData(
-                    time = hourlyWeather.time[index],
-                    temperature = hourlyWeather.temperature[index],
-                    weatherCode = hourlyWeather.weatherCode[index],
-                    isDay = hourlyWeather.isDay[index]
-                )
-            }
-            // Filter to include only data after the current time
-            .filter { data -> LocalDateTime.parse(data.time).isAfter(currentDateTime) }
-            // Take the next 24 hours of data
-            .take(24)
-
-        val adapter = binding.recyclerViewTemperatures.adapter as? TemperatureAdapter
-        if (adapter == null) {
-            // Create a new adapter if it doesn't exist
-            binding.recyclerViewTemperatures.adapter = TemperatureAdapter(hourlyData)
-        } else {
-            // Update the existing adapter's data
-            adapter.updateData(hourlyData)
-        }
-        binding.recyclerViewTemperatures.visibility = View.VISIBLE
-    }
-
-    private fun updateDailyWeatherUI(dailyWeather: Daily) {
-        binding.apply {
-            // Update Sunrise and Sunset
-            sunRiseTextView.text = dailyWeather.sunrise[0].split('T')[1]
-            sunSetTextView.text = dailyWeather.sunset[0].split('T')[1]
-            // Update Daily Weather
-            dailyWeatherLayout.removeAllViews()
-            for (i in dailyWeather.time.indices) {
-                DailyWeatherUtils.addWeatherData(
-                    context,
-                    dailyWeatherLayout,
-                    dailyWeather.time[i],
-                    dailyWeather.precipitationProbabilityMax[i],
-                    dailyWeather.temperatureMax[i],
-                    dailyWeather.temperatureMin[i]
-                )
-            }
-            dailyWeatherLayout.visibility = View.VISIBLE
-        }
-    }
-
     fun handleWeatherFailure() {
         binding.apply {
-            textViewTemperature.text = "--째C"
+            textViewTemperature.text = "--캜"
             textViewHumidity.text = "--%"
             textViewWindSpeed.text = "--km/h"
-            textViewFeelsLike.text = "--째C"
-            imageViewWeather.setImageResource(WeatherTheme.getWeatherIcon(weatherCode = -1, isDay = -1))
+            textViewFeelsLike.text = "--캜"
+            imageViewWeather.setImageResource(WeatherTheme.getWeatherIcon(-1, -1))
             textViewTime.text = ""
             recyclerViewTemperatures.visibility = View.GONE
             dailyWeatherLayout.visibility = View.GONE
@@ -199,79 +100,21 @@ class WeatherUiController(
         hideKeyboardAndListView()
     }
 
-    fun updateLocationList(locations: List<LocationResponse>) {
-        val adapter = ArrayAdapter(
-            context,
-            android.R.layout.simple_list_item_1,
-            locations.map { location -> location.displayName }
-        )
-        binding.listViewLocations.adapter = adapter
-
-        handleLocationItemClick(locations)
-        hideMain()
-        binding.listViewLocations.visibility = View.VISIBLE
+    fun dismissSuggestions() {
+        binding.listViewLocations.visibility = View.GONE
+        binding.listViewLocations.adapter = null
+        showMain()
     }
 
-    // Call viewModel
-    private fun handleLocationItemClick(locations: List<LocationResponse>) {
+    fun updateLocationList(locations: List<LocationSuggestion>) {
+        binding.listViewLocations.adapter = ArrayAdapter(context, android.R.layout.simple_list_item_1, locations.map { it.displayName })
         binding.listViewLocations.setOnItemClickListener { _, _, position, _ ->
-            val selectedLocation = locations[position]
-
-            // Fetch weather and city name based on the selected location's latitude and longitude
-            viewModel.fetchWeather(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble())
-            viewModel.fetchCityName(selectedLocation.latitude.toDouble(), selectedLocation.longitude.toDouble(), reverseGeocodeApiKey)
-
-            // Hide keyboard, clear input, and show main content
+            onLocationSelected(locations[position])
             hideKeyboardAndListView()
             binding.editTextLocation.setText("")
             showMain()
         }
-    }
-
-    fun checkLocationAndFetchData() {
-        CoroutineScope(Dispatchers.Main).launch {
-            showLoading(isLoading = true)
-
-            // Check if location permissions are granted
-            if (LocationHandler.isLocationPermissionGranted(context)) {
-                // Check if location services are enabled
-                if (LocationHandler.isLocationEnabled(context)) {
-                    // Use coroutines to fetch the location asynchronously
-                    CoroutineScope(Dispatchers.Main).launch {
-                        try {
-                            val location = LocationHandler.getLocation(context)
-                            location?.let {
-                                // Fetch weather and city name based on location
-                                viewModel.fetchWeather(it.latitude, it.longitude)
-                                viewModel.fetchCityName(it.latitude, it.longitude, reverseGeocodeApiKey)
-                            } ?: run {
-                                // Handle case where location is null
-                                Toast.makeText(context, "Unable to get location", Toast.LENGTH_SHORT)
-                                    .show()
-                                showLoading(isLoading = false)
-                            }
-                        } catch (e: Exception) {
-                            // Handle errors during location fetching
-                            Toast.makeText(
-                                context,
-                                "Error getting location: ${e.message}",
-                                Toast.LENGTH_SHORT
-                            ).show()
-                            showLoading(isLoading = false)
-                        }
-                    }
-                } else {
-                    Toast.makeText(context, "Location disabled", Toast.LENGTH_SHORT).show()
-                    showLoading(isLoading = false)
-                }
-            } else {
-                Toast.makeText(context, "Location permission not granted", Toast.LENGTH_SHORT).show()
-                showLoading(isLoading = false)
-                LocationHandler.requestLocationPermission(
-                    context as Activity,
-                    LOCATION_PERMISSION_REQUEST_CODE
-                )
-            }
-        }
+        hideMain()
+        binding.listViewLocations.visibility = View.VISIBLE
     }
 }

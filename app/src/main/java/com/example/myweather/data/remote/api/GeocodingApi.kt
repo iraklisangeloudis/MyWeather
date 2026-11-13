@@ -1,15 +1,15 @@
-package com.example.myweather.data.network.services
+package com.example.myweather.data.remote.api
 
-import com.example.myweather.data.network.responses.AddressNameResponse
+import com.example.myweather.data.remote.dto.AddressNameResponse
 import retrofit2.http.GET
 import retrofit2.http.Query
 
-interface AddressNameService {
+interface GeocodingApi {
     // https://geocode.maps.co/reverse
     @GET("reverse")
-    suspend fun getAddressName(
+    suspend fun fetchAddress(
         @Query("lat") latitude: Double,
         @Query("lon") longitude: Double,
-        @Query("key") apiKey: String
+        @Query("api_key") apiKey: String
     ): AddressNameResponse
 }

@@ -1,13 +1,13 @@
-package com.example.myweather.data.db
+package com.example.myweather.data.local.db
 
 import android.content.Context
 import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
-import com.example.myweather.data.db.dao.CurrentWeatherDao
-import com.example.myweather.data.db.dao.DailyWeatherDao
-import com.example.myweather.data.db.dao.HourlyWeatherDao
-import com.example.myweather.data.db.entities.*
+import com.example.myweather.data.local.db.dao.CurrentWeatherDao
+import com.example.myweather.data.local.db.dao.DailyWeatherDao
+import com.example.myweather.data.local.db.dao.HourlyWeatherDao
+import com.example.myweather.data.local.db.entities.*
 
 @Database(
     entities = [CurrentWeatherEntity::class, HourlyWeatherEntity::class, DailyWeatherEntity::class],
@@ -25,13 +25,11 @@ abstract class WeatherDatabase : RoomDatabase() {
 
         fun getDatabase(context: Context): WeatherDatabase {
             return INSTANCE ?: synchronized(this) {
-                val instance = Room.databaseBuilder(
+                INSTANCE ?: Room.databaseBuilder(
                     context.applicationContext,
                     WeatherDatabase::class.java,
                     "weather.db"
-                ).fallbackToDestructiveMigration().build()
-                INSTANCE = instance
-                instance
+                ).fallbackToDestructiveMigration().build().also { INSTANCE = it }
             }
         }
     }

@@ -1,28 +1,21 @@
-package com.example.myweather.data.repositories
+package com.example.myweather.data.repository
 
-import com.example.myweather.data.network.services.AddressNameService
-import retrofit2.Retrofit
-import retrofit2.converter.gson.GsonConverterFactory
+import android.util.Log
+import com.example.myweather.data.remote.api.GeocodingApi
+import kotlinx.coroutines.CancellationException
 
 interface CityNameRepository {
-    suspend fun fetchCityName(latitude: Double, longitude: Double, reverseGeocodeApiKey: String): String?
+    suspend fun fetchCityName(latitude: Double, longitude: Double): String?
 }
 
-class CityNameRepositoryImpl : CityNameRepository {
+class CityNameRepositoryImpl(
+    private val geocodingApi: GeocodingApi,
+    private val reverseGeocodeApiKey: String
+) : CityNameRepository {
 
-    private val addressNameService: AddressNameService
-
-    init {
-        val retrofit = Retrofit.Builder()
-            .baseUrl("https://geocode.maps.co/")
-            .addConverterFactory(GsonConverterFactory.create())
-            .build()
-        addressNameService = retrofit.create(AddressNameService::class.java)
-    }
-
-    override suspend fun fetchCityName(latitude: Double, longitude: Double, reverseGeocodeApiKey: String): String? {
+    override suspend fun fetchCityName(latitude: Double, longitude: Double): String? {
         return try {
-            val response = addressNameService.getAddressName(latitude, longitude, reverseGeocodeApiKey)
+            val response = geocodingApi.fetchAddress(latitude, longitude, reverseGeocodeApiKey)
             val address = response.address
             when {
                 address.village != null && address.county != null -> "${address.village},\n${address.county}"
@@ -39,7 +32,10 @@ class CityNameRepositoryImpl : CityNameRepository {
                 address.country != null -> address.country
                 else -> ""
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
+            Log.w("CityNameRepository", requestFailureMessage(e))
             null
         }
     }

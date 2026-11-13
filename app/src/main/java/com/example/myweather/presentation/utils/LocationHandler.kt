@@ -11,9 +11,7 @@ import android.location.LocationManager
 import android.os.Bundle
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.suspendCancellableCoroutine
-import kotlinx.coroutines.withContext
 import kotlin.coroutines.resume
 
 object LocationHandler {
@@ -26,13 +24,13 @@ object LocationHandler {
         )
     }
 
-    suspend fun isLocationPermissionGranted(context: Context): Boolean = withContext(Dispatchers.IO) {
-        ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+    fun isLocationPermissionGranted(context: Context): Boolean {
+        return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
     }
 
-    suspend fun isLocationEnabled(context: Context): Boolean = withContext(Dispatchers.IO) {
+    fun isLocationEnabled(context: Context): Boolean {
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
                 locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
     }
 
@@ -41,7 +39,7 @@ object LocationHandler {
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
         val locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
-                continuation.resume(location)  // Resume the coroutine with the location
+                if (continuation.isActive) continuation.resume(location)  // Resume the coroutine with the location
                 locationManager.removeUpdates(this)
             }
 
@@ -51,7 +49,7 @@ object LocationHandler {
         }
 
         locationManager.requestLocationUpdates(
-            LocationManager.GPS_PROVIDER,
+            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) LocationManager.GPS_PROVIDER else LocationManager.NETWORK_PROVIDER,
             0L,
             0f,
             locationListener

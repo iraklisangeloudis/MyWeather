@@ -14,15 +14,13 @@ import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
+import androidx.lifecycle.lifecycleScope
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.withTimeoutOrNull
+import com.example.myweather.presentation.utils.LocationHandler
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import com.example.myweather.data.db.WeatherDatabase
 import com.example.myweather.databinding.ActivityMainBinding
-import com.example.myweather.data.preferences.WeatherPreferences
-import com.example.myweather.data.repositories.*
 import com.example.myweather.presentation.adapter.TemperatureAdapter
 import com.example.myweather.presentation.ui.WeatherUiController
 import com.example.myweather.presentation.utils.LocationHandler.requestLocationPermission
@@ -30,28 +28,15 @@ import com.example.myweather.presentation.viewmodel.CityNameState
 import com.example.myweather.presentation.viewmodel.LocationState
 import com.example.myweather.presentation.viewmodel.WeatherState
 import com.example.myweather.presentation.viewmodel.WeatherViewModel
-import com.example.myweather.presentation.viewmodel.WeatherViewModelFactory
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-    private lateinit var cityNameRepository: CityNameRepository
-    private lateinit var weatherRepository: WeatherRepository
-    private lateinit var locationRepository: LocationRepository
-    private val weatherPreferences by lazy { WeatherPreferences(this) }
     private val viewModel: WeatherViewModel by viewModels {
-        WeatherViewModelFactory(
-            weatherRepository,
-            cityNameRepository,
-            weatherPreferences,
-            CurrentWeatherRepositoryImpl(WeatherDatabase.getDatabase(this).currentWeatherDao()),
-            DailyWeatherRepositoryImpl(WeatherDatabase.getDatabase(this).dailyWeatherDao()),
-            HourlyWeatherRepositoryImpl(WeatherDatabase.getDatabase(this).hourlyWeatherDao()),
-            locationRepository
-        )
+        (application as WeatherApplication).container.viewModelFactory
     }
+    private var locationJob: Job? = null
     private lateinit var uiController: WeatherUiController
     private val LOCATION_PERMISSION_REQUEST_CODE = 1
-    private val locationIQApiKey = BuildConfig.LOCATION_IQ_API_KEY
     private var isKeyboardVisible = false
     private var backPressCount = 0
     private val handler = Handler(Looper.getMainLooper())
@@ -61,27 +46,23 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        cityNameRepository = CityNameRepositoryImpl()
-        weatherRepository = WeatherRepositoryImpl()
-        locationRepository = LocationRepositoryImpl()
-        uiController = WeatherUiController(binding, this, this.window, weatherPreferences, viewModel)
+        uiController = WeatherUiController(binding, this, window) { location ->
+            locationJob?.cancel()
+            viewModel.selectLocation(location.latitude, location.longitude)
+        }
         setupRecyclerView()
         setupTheme()
         setupViewModelObserver()
         setupListeners()
-        // Load data from shared preferences
-        uiController.loadSavedWeatherData()
-    }
-
-    override fun onStart() {
-        super.onStart()
-        // Trigger onRequestPermissionsResult
-        requestLocationPermission(this, LOCATION_PERMISSION_REQUEST_CODE)
+        if (savedInstanceState == null && LocationHandler.isLocationPermissionGranted(this)) {
+            checkLocationAndFetchData()
+        }
     }
 
     override fun onBackPressed() {
         if (isKeyboardVisible || binding.listViewLocations.visibility == View.VISIBLE) {
             // Dismiss the keyboard and list view
+            viewModel.searchLocations("")
             uiController.hideKeyboardAndListView()
         } else {
             if (backPressCount == 0) {
@@ -107,7 +88,7 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == LOCATION_PERMISSION_REQUEST_CODE) {
             if (grantResults.isNotEmpty() && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
                 // Permission granted, proceed with location fetch from API
-                uiController.checkLocationAndFetchData()
+                checkLocationAndFetchData()
             } else {
                 Log.e("WeatherApp", "Location permission denied.")
             }
@@ -117,7 +98,7 @@ class MainActivity : AppCompatActivity() {
     private fun setupRecyclerView() {
         binding.recyclerViewTemperatures.layoutManager = LinearLayoutManager(this, LinearLayoutManager.HORIZONTAL, false)
         // Initialize recyclerViewTemperatures with an empty list
-        binding.recyclerViewTemperatures.adapter = TemperatureAdapter(listOf())
+        binding.recyclerViewTemperatures.adapter = TemperatureAdapter()
     }
 
     private fun setupTheme() {
@@ -131,19 +112,23 @@ class MainActivity : AppCompatActivity() {
         viewModel.weatherState.observe(this) { state ->
             when (state) {
                 is WeatherState.Loading -> uiController.showLoading(true)
-                is WeatherState.Success -> uiController.handleWeatherResponse(state.weatherResponse)
-                is WeatherState.Error -> uiController.handleWeatherFailure()
+                is WeatherState.Success -> uiController.renderWeather(state.weather)
+                is WeatherState.Error -> {
+                    state.cachedWeather?.let { uiController.renderWeather(it) } ?: uiController.handleWeatherFailure()
+                    Toast.makeText(this, state.message, Toast.LENGTH_SHORT).show()
+                }
             }
         }
         viewModel.cityNameState.observe(this) { state ->
             when (state) {
                 is CityNameState.Success -> binding.textViewCityName.text = state.cityName
-                is CityNameState.Error -> binding.textViewCityName.text = ""
+                CityNameState.Error -> binding.textViewCityName.text = ""
             }
         }
         viewModel.locationState.observe(this) { state ->
             when (state) {
-                is LocationState.Success -> uiController.updateLocationList(state.locationResponse)
+                LocationState.Idle -> uiController.dismissSuggestions()
+                is LocationState.Success -> uiController.updateLocationList(state.locations)
                 is LocationState.Error -> Toast.makeText(this@MainActivity, state.message, Toast.LENGTH_SHORT).show()
             }
         }
@@ -164,32 +149,55 @@ class MainActivity : AppCompatActivity() {
 
         // Use Location button listener
         binding.useLocationStatusButton.setOnClickListener {
-            uiController.checkLocationAndFetchData()
+            checkLocationAndFetchData()
             binding.editTextLocation.clearFocus()
         }
 
         // User typing listener
         binding.editTextLocation.addTextChangedListener(object : TextWatcher {
-            private var debounceJob: Job? = null
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
 
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
 
             override fun afterTextChanged(s: Editable?) {
-                debounceJob?.cancel()
-                debounceJob = CoroutineScope(Dispatchers.Main).launch {
-                    delay(1000) // debounce delay
-                    val query = s.toString()
-                    if (query.isNotEmpty()) {
-                        viewModel.getAutocomplete(query,locationIQApiKey)
-                    } else {
-                        binding.editTextLocation.clearFocus()
-                        uiController.hideKeyboardAndListView()
-                        uiController.showMain()
-                    }
-                }
+                viewModel.searchLocations(s?.toString().orEmpty())
             }
         })
     }
+    private fun checkLocationAndFetchData() {
+        locationJob?.cancel()
+        locationJob = lifecycleScope.launch {
+            if (!LocationHandler.isLocationPermissionGranted(this@MainActivity)) {
+                requestLocationPermission(this@MainActivity, LOCATION_PERMISSION_REQUEST_CODE)
+                return@launch
+            }
+            if (!LocationHandler.isLocationEnabled(this@MainActivity)) {
+                Toast.makeText(this@MainActivity, "Location disabled", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            viewModel.searchLocations("")
+            uiController.showLoading(true)
+            try {
+                val location = withTimeoutOrNull(15_000) { LocationHandler.getLocation(this@MainActivity) }
+                if (location == null) {
+                    uiController.showLoading(false)
+                    Toast.makeText(this@MainActivity, "Unable to get location", Toast.LENGTH_SHORT).show()
+                } else {
+                    viewModel.selectLocation(location.latitude, location.longitude)
+                }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (_: Exception) {
+                uiController.showLoading(false)
+                Toast.makeText(this@MainActivity, "Unable to get location", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    override fun onDestroy() {
+        handler.removeCallbacksAndMessages(null)
+        super.onDestroy()
+    }
+
 }

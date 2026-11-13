@@ -1,12 +1,12 @@
-package com.example.myweather.data.network.services
+package com.example.myweather.data.remote.api
 
-import com.example.myweather.data.network.responses.WeatherResponse
+import com.example.myweather.data.remote.dto.WeatherResponse
 import retrofit2.http.GET
 import retrofit2.http.Query
 
-interface WeatherService {
+interface WeatherApi {
     @GET("v1/forecast")
-    suspend fun getCurrentWeather(
+    suspend fun fetchWeather(
         @Query("latitude") latitude: Double,
         @Query("longitude") longitude: Double,
         @Query("current") current: String,

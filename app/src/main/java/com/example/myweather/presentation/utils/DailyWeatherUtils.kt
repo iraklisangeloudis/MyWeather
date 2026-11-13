@@ -8,10 +8,6 @@ import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.core.content.ContextCompat
 import com.example.myweather.R
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import java.time.format.TextStyle
-import java.util.Locale
 
 object DailyWeatherUtils {
     fun addWeatherData(context: Context, container: LinearLayout, day: String, precipitationProbability: Int, maxTemperature: Double, minTemperature: Double) {
@@ -26,20 +22,8 @@ object DailyWeatherUtils {
 
         val textColor = ContextCompat.getColor(context, R.color.light)
 
-        // Parse the date string to a LocalDate object
-        val date = LocalDate.parse(day, DateTimeFormatter.ISO_DATE)
-        // Get the day of the week and return it as a string
-        var newDay: String? = null
-        // Check if the date is today
-        val today = LocalDate.now()
-        if (date == today) {
-            newDay = "Today"
-        } else {
-            // Get the day of the week and return it as a string in English
-            newDay = date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
-        }
         val dayView = TextView(context).apply {
-            text = newDay
+            text = day
             setTextColor(textColor)
             textSize = 18f
             layoutParams = LinearLayout.LayoutParams(
