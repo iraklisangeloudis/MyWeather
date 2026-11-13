@@ -30,13 +30,13 @@ class GeocodingApiTest {
                 .body(ResponseBody.create(null, "{\"address\":{\"city\":\"Athens\"}}"))
                 .build()
         }.build()
-        val service = Retrofit.Builder()
+        val geocodingApi = Retrofit.Builder()
             .baseUrl("https://example.test/")
             .client(client)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(GeocodingApi::class.java)
 
-        assertEquals("Athens", service.fetchAddress(37.9838, 23.7275, "test-key").address.city)
+        assertEquals("Athens", geocodingApi.fetchAddress(37.9838, 23.7275, "test-key").address.city)
     }
 }

@@ -28,12 +28,12 @@ class WeatherUITest {
             activity.setTheme(R.style.Theme_MyWeather)
             val binding = ActivityMainBinding.inflate(activity.layoutInflater)
             binding.recyclerViewTemperatures.adapter = TemperatureAdapter()
-            val renderer = WeatherUI(binding, activity, activity.window) {}
-            renderer.render(WeatherViewState())
+            val weatherUI = WeatherUI(binding, activity, activity.window) {}
+            weatherUI.render(WeatherViewState())
             assertEquals(View.GONE, binding.recyclerViewTemperatures.visibility)
             val state = WeatherViewState(weather = GetWeatherForecastUseCase()(forecast()), cityName = "Athens")
-            renderer.render(state)
-            renderer.render(state.copy(isRefreshing = true))
+            weatherUI.render(state)
+            weatherUI.render(state.copy(isRefreshing = true))
             assertEquals("20.0 \u00b0C", binding.textViewTemperature.text.toString())
             assertEquals("Athens", binding.textViewCityName.text.toString())
             assertEquals(View.VISIBLE, binding.textViewTemperature.visibility)
@@ -48,16 +48,16 @@ class WeatherUITest {
             activity.setTheme(R.style.Theme_MyWeather)
             val binding = ActivityMainBinding.inflate(activity.layoutInflater)
             binding.recyclerViewTemperatures.adapter = TemperatureAdapter()
-            val renderer = WeatherUI(binding, activity, activity.window) {}
+            val weatherUI = WeatherUI(binding, activity, activity.window) {}
             val state = WeatherViewState(weather = GetWeatherForecastUseCase()(forecast()),
                 suggestions = listOf(LocationSuggestion(1.0, 2.0, "Athens")))
-            renderer.render(state)
+            weatherUI.render(state)
             val adapter = binding.listViewLocations.adapter
-            renderer.render(state.copy(isRefreshing = true))
+            weatherUI.render(state.copy(isRefreshing = true))
             assertSame(adapter, binding.listViewLocations.adapter)
             assertEquals(View.VISIBLE, binding.listViewLocations.visibility)
             assertEquals(View.GONE, binding.textViewTemperature.visibility)
-            renderer.render(state.copy(suggestions = emptyList()))
+            weatherUI.render(state.copy(suggestions = emptyList()))
             assertEquals(View.GONE, binding.listViewLocations.visibility)
             assertEquals(View.VISIBLE, binding.textViewTemperature.visibility)
         }

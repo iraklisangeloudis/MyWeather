@@ -36,7 +36,7 @@ class MainActivity : AppCompatActivity() {
     private val viewModel: WeatherViewModel by viewModel()
     private val getCurrentLocation: GetCurrentLocationUseCase by inject()
     private val locationRequests = Channel<LocationRequest>(Channel.CONFLATED)
-    private lateinit var renderer: WeatherUI
+    private lateinit var weatherUI: WeatherUI
     private val LOCATION_PERMISSION_REQUEST_CODE = 1
     private var isKeyboardVisible = false
     private var backPressCount = 0
@@ -47,7 +47,7 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        renderer = WeatherUI(binding, this, window) { location ->
+        weatherUI = WeatherUI(binding, this, window) { location ->
             locationRequests.trySend(LocationRequest.Selected(location.latitude, location.longitude))
         }
         setupRecyclerView()
@@ -64,7 +64,7 @@ class MainActivity : AppCompatActivity() {
         if (isKeyboardVisible || binding.listViewLocations.visibility == View.VISIBLE) {
             // Dismiss the keyboard and list view
             viewModel.searchLocations("")
-            renderer.hideKeyboardAndListView()
+            weatherUI.hideKeyboardAndListView()
         } else {
             if (backPressCount == 0) {
                 backPressCount++
@@ -77,7 +77,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         binding.editTextLocation.clearFocus()
-        renderer.showMain()
+        weatherUI.showMain()
     }
 
     override fun onRequestPermissionsResult(
@@ -112,7 +112,7 @@ class MainActivity : AppCompatActivity() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
                 viewModel.viewState.collect { state ->
-                    renderer.render(state)
+                    weatherUI.render(state)
                     state.message?.let { message ->
                         Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
                         viewModel.messageShown(message)
