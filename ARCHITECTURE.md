@@ -38,3 +38,11 @@ The ViewModel exposes one `StateFlow<WeatherViewState>`. Search uses `transformL
 Room is the weather cache. Refreshes replace a full snapshot in one transaction. Existing SharedPreferences weather snapshots are migrated once and removed after a successful database write. Cache work runs on IO. API requests use `fetch...`; one-time DAO reads use `get...`.
 
 Use JDK 17. Run `gradlew.bat :app:testDebugUnitTest :app:assembleDebug :app:lintDebug`. Tests follow the feature packages and cover API authentication, search/refresh cancellation, forecast preparation, location timeout, cache restoration/migration/rollback, rendering, Koin wiring, and application startup. Android-dependent tests run locally with Robolectric; they do not replace device testing.
+
+## Continuous integration
+
+`.github/workflows/android-ci.yml` runs on pushes, pull requests, and manual dispatch. It uses Temurin 17, the Gradle wrapper, and the Android SDK to run unit tests, lint, and the debug build. Reports are retained for 14 days and the debug APK for 7 days. The Gradle setup action caches dependencies and validates the wrapper.
+
+CI writes dummy API-key properties, so it needs no repository secrets and also works for forked pull requests. Tests use fakes or intercepted requests. The uploaded APK contains placeholder keys; it is a build artifact, not a fully configured weather app. Live-provider checks and emulator/device tests are separate from this workflow.
+
+`gradle/gradle-daemon-jvm.properties` selects Java 17 for Gradle on development machines and CI. The Foojay resolver can provision that JDK if it is missing. Local `.kotlin/` and `.gradle/` files are ignored.
