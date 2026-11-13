@@ -1,5 +1,6 @@
 package com.example.myweather.features.weather.data.model
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
 import androidx.room.PrimaryKey
 
@@ -12,5 +13,8 @@ data class CurrentWeatherEntity(
     val apparentTemperature: Double,
     val isDay: Int,
     val weatherCode: Int,
-    val windSpeed: Double
+    val windSpeed: Double,
+    @ColumnInfo(defaultValue = "''") val locationName: String = "",
+    val latitude: Double? = null,
+    val longitude: Double? = null
 )

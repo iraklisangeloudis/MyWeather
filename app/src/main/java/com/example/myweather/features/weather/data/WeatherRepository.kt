@@ -2,6 +2,7 @@ package com.example.myweather.features.weather.data
 
 import androidx.room.withTransaction
 import com.example.myweather.database.WeatherDatabase
+import com.example.myweather.features.location.domain.model.Coordinates
 import com.example.myweather.features.weather.data.api.WeatherApi
 import com.example.myweather.features.weather.data.model.*
 import com.example.myweather.features.weather.domain.model.*
@@ -12,6 +13,7 @@ import kotlinx.coroutines.withContext
 interface WeatherRepository {
     suspend fun getCachedWeather(): WeatherForecast?
     suspend fun refreshWeather(latitude: Double, longitude: Double): WeatherForecast
+    suspend fun updateLocationName(latitude: Double, longitude: Double, name: String) = Unit
 }
 
 class WeatherRepositoryImpl(
@@ -39,7 +41,9 @@ class WeatherRepositoryImpl(
                     hourly.map { it.weatherCode }, hourly.map { it.isDay }),
                 DailyWeather(daily.map { it.date }, daily.map { it.weatherCode },
                     daily.map { it.maxTemperature }, daily.map { it.minTemperature },
-                    daily.map { it.sunrise }, daily.map { it.sunset }, daily.map { it.precipitationProbability })
+                    daily.map { it.sunrise }, daily.map { it.sunset }, daily.map { it.precipitationProbability }),
+                current.locationName,
+                if (current.latitude != null && current.longitude != null) Coordinates(current.latitude, current.longitude) else null
             )
         }
     }
@@ -51,10 +55,14 @@ class WeatherRepositoryImpl(
             "temperature_2m,weather_code,is_day",
             "weather_code,temperature_2m_max,temperature_2m_min,sunrise,sunset,precipitation_probability_max"
         )
-        val weather = response.toForecast()
+        val weather = response.toForecast().copy(coordinates = Coordinates(latitude, longitude))
         saveWeather(weather)
         legacyCache.clear()
         weather
+    }
+
+    override suspend fun updateLocationName(latitude: Double, longitude: Double, name: String) = withContext(ioDispatcher) {
+        database.currentWeatherDao().updateLocationName(latitude, longitude, name)
     }
 
     private suspend fun saveWeather(weather: WeatherForecast) {
@@ -63,7 +71,8 @@ class WeatherRepositoryImpl(
         val daily = weather.daily
         val currentEntity = CurrentWeatherEntity(time = current.time, temperature = current.temperature,
             humidity = current.humidity, apparentTemperature = current.apparentTemperature,
-            isDay = current.isDay, weatherCode = current.weatherCode, windSpeed = current.windSpeed)
+            isDay = current.isDay, weatherCode = current.weatherCode, windSpeed = current.windSpeed,
+            locationName = weather.locationName, latitude = weather.coordinates?.latitude, longitude = weather.coordinates?.longitude)
         val hourlyEntities = hourly.time.indices.map { i ->
             HourlyWeatherEntity(time = hourly.time[i], temperature = hourly.temperature[i],
                 weatherCode = hourly.weatherCode[i], isDay = hourly.isDay[i])

@@ -1,9 +1,13 @@
 package com.example.myweather.features.weather.domain.model
 
+import com.example.myweather.features.location.domain.model.Coordinates
+
 data class WeatherForecast(
     val current: CurrentWeather,
     val hourly: HourlyWeather,
-    val daily: DailyWeather
+    val daily: DailyWeather,
+    val locationName: String = "",
+    val coordinates: Coordinates? = null
 )
 
 data class CurrentWeather(

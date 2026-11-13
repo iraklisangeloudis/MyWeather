@@ -48,6 +48,40 @@ class WeatherRepositoryTest {
         assertEquals(48, restored!!.hourly.time.size)
     }
 
+    @Test fun locationLabelIsSavedOnlyForMatchingForecastCoordinates() = runBlocking {
+        repository.refreshWeather(37.98, 23.72)
+        repository.updateLocationName(37.98, 23.72, "Athens")
+        repository.updateLocationName(51.5, -.12, "An older request")
+        val restored = repository.getCachedWeather()!!
+        assertEquals("Athens", restored.locationName)
+        assertEquals(com.example.myweather.features.location.domain.model.Coordinates(37.98, 23.72), restored.coordinates)
+    }
+
+    @Test fun versionOneCacheIsMigratedWithoutLosingWeather() = runBlocking {
+        val name = "migration-weather.db"
+        context.deleteDatabase(name)
+        val path = context.getDatabasePath(name)
+        path.parentFile!!.mkdirs()
+        android.database.sqlite.SQLiteDatabase.openOrCreateDatabase(path, null).use { old ->
+            old.execSQL("CREATE TABLE current_weather (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, time TEXT NOT NULL, temperature REAL NOT NULL, humidity INTEGER NOT NULL, apparentTemperature REAL NOT NULL, isDay INTEGER NOT NULL, weatherCode INTEGER NOT NULL, windSpeed REAL NOT NULL)")
+            old.execSQL("CREATE TABLE hourly_weather (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, time TEXT NOT NULL, temperature REAL NOT NULL, weatherCode INTEGER NOT NULL, isDay INTEGER NOT NULL)")
+            old.execSQL("CREATE TABLE daily_weather (id INTEGER PRIMARY KEY AUTOINCREMENT NOT NULL, date TEXT NOT NULL, weatherCode INTEGER NOT NULL, maxTemperature REAL NOT NULL, minTemperature REAL NOT NULL, sunrise TEXT NOT NULL, sunset TEXT NOT NULL, precipitationProbability INTEGER NOT NULL)")
+            old.execSQL("INSERT INTO current_weather VALUES (1, '2026-11-13T12:15', 20, 50, 20, 1, 0, 5)")
+            old.version = 1
+        }
+        val migrated = Room.databaseBuilder(context, WeatherDatabase::class.java, name)
+            .addMigrations(WeatherDatabase.MIGRATION_1_2).build()
+        try {
+            val current = migrated.currentWeatherDao().getCurrentWeather()!!
+            assertEquals(20.0, current.temperature, 0.0)
+            assertEquals("", current.locationName)
+            assertNull(current.latitude)
+        } finally {
+            migrated.close()
+            context.deleteDatabase(name)
+        }
+    }
+
     @Test fun legacyPreferencesAreMigratedOnceAndRemoved() = runBlocking {
         val preferences = context.getSharedPreferences("WeatherPrefs", Context.MODE_PRIVATE)
         val gson = Gson()
