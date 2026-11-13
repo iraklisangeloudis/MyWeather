@@ -8,6 +8,8 @@ import com.example.myweather.features.location.data.LocationRepository
 import com.example.myweather.features.location.domain.GetCurrentLocationUseCase
 import com.example.myweather.features.weather.data.WeatherRepository
 import com.example.myweather.features.weather.domain.GetWeatherForecastUseCase
+import com.example.myweather.features.weather.domain.RefreshSavedWeatherUseCase
+import com.example.myweather.features.weather.widget.WeatherWidgetDataSource
 import com.example.myweather.features.weather.ui.WeatherViewModel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -41,6 +43,8 @@ class AppModulesTest {
             assertNotNull(koin.get<CityNameRepository>())
             assertNotNull(koin.get<GetCurrentLocationUseCase>())
             assertNotNull(koin.get<GetWeatherForecastUseCase>())
+            assertNotNull(koin.get<RefreshSavedWeatherUseCase>())
+            assertNotNull(koin.get<WeatherWidgetDataSource>())
             store.put("weather", koin.get<WeatherViewModel>())
         } finally {
             store.clear()

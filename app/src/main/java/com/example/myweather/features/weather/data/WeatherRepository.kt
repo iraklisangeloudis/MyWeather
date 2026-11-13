@@ -19,7 +19,8 @@ interface WeatherRepository {
 class WeatherRepositoryImpl(
     private val api: WeatherApi,
     private val database: WeatherDatabase,
-    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    private val onCacheChanged: () -> Unit = {}
 ) : WeatherRepository {
     override suspend fun getCachedWeather(): WeatherForecast? = withContext(ioDispatcher) {
         database.withTransaction {
@@ -50,11 +51,13 @@ class WeatherRepositoryImpl(
         )
         val weather = response.toForecast().copy(coordinates = Coordinates(latitude, longitude))
         saveWeather(weather)
+        onCacheChanged()
         weather
     }
 
     override suspend fun updateLocationName(latitude: Double, longitude: Double, name: String) = withContext(ioDispatcher) {
         database.currentWeatherDao().updateLocationName(latitude, longitude, name)
+        onCacheChanged()
     }
 
     private suspend fun saveWeather(weather: WeatherForecast) {

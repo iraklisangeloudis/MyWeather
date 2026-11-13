@@ -51,4 +51,11 @@
     <string name="condition_mostly_clear">Mostly clear</string>
     <string name="condition_overcast">Overcast</string>
     <string name="condition_heavy_storm">Heavy thunderstorm</string>
+    <string name="widget_name">MyWeather forecast</string>
+    <string name="widget_description">Weather for your last saved location, with an hourly outlook.</string>
+    <string name="widget_empty">Open MyWeather and choose a location to get started.</string>
+    <string name="widget_refresh">Refresh</string>
+    <string name="widget_refresh_failed">Refresh failed · showing saved weather</string>
+    <string name="widget_no_coordinates">Open MyWeather to choose a location</string>
+    <string name="widget_hour_temperature">%1$s · %2$.0f°</string>
 </resources>

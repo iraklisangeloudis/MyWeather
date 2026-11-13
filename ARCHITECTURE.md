@@ -26,6 +26,14 @@ The pull indicator uses animated dots, with explicit drawable invalidation and l
 
 Room schema version 2 preserves existing data through migration. Cached location labels are updated only when their coordinates match the stored forecast.
 
+## Home-screen widget
+
+`features/weather/widget/` uses Jetpack Glance alongside the Views/XML screen. All widget instances follow the app's single saved location. The responsive layout shows current conditions and high/low, adding three hourly readings when widened. Meteocons are rendered to small static bitmaps; widgets do not animate.
+
+The widget reads Room through the existing repository and forecast use case. Room Flow keeps active Glance sessions current. Successful cache writes enqueue a render worker through a callback wired in Koin; widget scheduling failures do not fail weather saves. Tapping the widget opens MainActivity. Refresh actions use WorkManager and `RefreshSavedWeatherUseCase` with saved coordinates, preserving the location label. No background location permission or device-location lookup is used.
+
+While widgets are installed, unique hourly work refreshes on an available network; Android may defer execution. Removing the last widget cancels widget work. Failed refreshes keep cached weather and show a failure label. Empty or migrated caches without coordinates direct users to the app. Glance 1.1.1 and Compose compiler 1.5.3 retain compatibility with Kotlin 1.9.10; the app screen remains Views/XML.
+
 ## Verification
 
 Use JDK 17; Gradle's daemon JVM configuration pins it.

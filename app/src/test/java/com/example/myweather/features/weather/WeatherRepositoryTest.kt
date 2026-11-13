@@ -24,6 +24,7 @@ class WeatherRepositoryTest {
     private lateinit var database: WeatherDatabase
     private lateinit var repository: WeatherRepositoryImpl
     private var response = response(20.0)
+    private var cacheChanges = 0
     private val api = object : WeatherApi {
         override suspend fun fetchWeather(latitude: Double, longitude: Double, current: String,
             hourly: String, daily: String, timezone: String) = response
@@ -32,7 +33,7 @@ class WeatherRepositoryTest {
     @Before fun setUp() {
         context = RuntimeEnvironment.getApplication()
         database = Room.inMemoryDatabaseBuilder(context, WeatherDatabase::class.java).build()
-        repository = WeatherRepositoryImpl(api, database)
+        repository = WeatherRepositoryImpl(api, database, onCacheChanged = { cacheChanges++ })
     }
 
     @After fun tearDown() = database.close()
@@ -43,6 +44,7 @@ class WeatherRepositoryTest {
         val restored = WeatherRepositoryImpl(api, database).getCachedWeather()
         assertEquals(fresh, restored)
         assertEquals(48, restored!!.hourly.time.size)
+        assertEquals(1, cacheChanges)
     }
 
     @Test fun locationLabelIsSavedOnlyForMatchingForecastCoordinates() = runBlocking {
@@ -92,6 +94,7 @@ class WeatherRepositoryTest {
             // All earlier deletes/inserts must have been rolled back too.
         }
         assertEquals(original, repository.getCachedWeather())
+        assertEquals(1, cacheChanges)
     }
 
     private fun response(temperature: Double): WeatherResponse {

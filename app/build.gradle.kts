@@ -47,6 +47,10 @@ android {
     buildFeatures {
         buildConfig = true
         viewBinding = true
+        compose = true
+    }
+    composeOptions {
+        kotlinCompilerExtensionVersion = "1.5.3"
     }
     testOptions {
         unitTests.isIncludeAndroidResources = true
@@ -54,6 +58,8 @@ android {
 }
 
 dependencies {
+    implementation("androidx.glance:glance-appwidget:1.1.1")
+    implementation("androidx.work:work-runtime-ktx:2.9.0")
     implementation("com.airbnb.android:lottie:6.6.7")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     // Koin 3.5 keeps the existing Kotlin 1.9 toolchain.

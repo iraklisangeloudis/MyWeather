@@ -5,9 +5,13 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import com.example.myweather.features.weather.data.model.CurrentWeatherEntity
+import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface CurrentWeatherDao {
+    @Query("SELECT * FROM current_weather")
+    fun observeCurrentWeather(): Flow<CurrentWeatherEntity?>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCurrentWeather(weather: CurrentWeatherEntity)
 
