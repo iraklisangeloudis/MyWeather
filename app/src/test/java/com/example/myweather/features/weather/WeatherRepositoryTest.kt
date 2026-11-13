@@ -4,11 +4,9 @@ import android.app.Application
 import android.content.Context
 import androidx.room.Room
 import com.example.myweather.database.WeatherDatabase
-import com.example.myweather.features.weather.data.LegacyWeatherCache
 import com.example.myweather.features.weather.data.WeatherRepositoryImpl
 import com.example.myweather.features.weather.data.api.WeatherApi
 import com.example.myweather.features.weather.data.api.model.*
-import com.google.gson.Gson
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.*
@@ -33,9 +31,8 @@ class WeatherRepositoryTest {
 
     @Before fun setUp() {
         context = RuntimeEnvironment.getApplication()
-        context.getSharedPreferences("WeatherPrefs", Context.MODE_PRIVATE).edit().clear().commit()
         database = Room.inMemoryDatabaseBuilder(context, WeatherDatabase::class.java).build()
-        repository = WeatherRepositoryImpl(api, database, LegacyWeatherCache(context))
+        repository = WeatherRepositoryImpl(api, database)
     }
 
     @After fun tearDown() = database.close()
@@ -43,7 +40,7 @@ class WeatherRepositoryTest {
     @Test fun completeForecastSurvivesCacheRestoration() = runBlocking {
         assertNull(repository.getCachedWeather())
         val fresh = repository.refreshWeather(37.98, 23.72)
-        val restored = WeatherRepositoryImpl(api, database, LegacyWeatherCache(context)).getCachedWeather()
+        val restored = WeatherRepositoryImpl(api, database).getCachedWeather()
         assertEquals(fresh, restored)
         assertEquals(48, restored!!.hourly.time.size)
     }
@@ -80,21 +77,6 @@ class WeatherRepositoryTest {
             migrated.close()
             context.deleteDatabase(name)
         }
-    }
-
-    @Test fun legacyPreferencesAreMigratedOnceAndRemoved() = runBlocking {
-        val preferences = context.getSharedPreferences("WeatherPrefs", Context.MODE_PRIVATE)
-        val gson = Gson()
-        preferences.edit()
-            .putString("current_weather", gson.toJson(response.current))
-            .putString("hourly_weather", gson.toJson(response.hourly))
-            .putString("daily_weather", gson.toJson(response.daily))
-            .commit()
-        val migrated = repository.getCachedWeather()
-        assertNotNull(migrated)
-        assertEquals(48, migrated!!.hourly.time.size)
-        assertFalse(preferences.contains("hourly_weather"))
-        assertEquals(migrated, repository.getCachedWeather())
     }
 
     @Test fun failedSnapshotReplacementRollsBackAllTables() = runBlocking {

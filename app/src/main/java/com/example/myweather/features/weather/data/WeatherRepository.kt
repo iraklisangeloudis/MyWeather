@@ -19,16 +19,9 @@ interface WeatherRepository {
 class WeatherRepositoryImpl(
     private val api: WeatherApi,
     private val database: WeatherDatabase,
-    private val legacyCache: LegacyWeatherCache,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : WeatherRepository {
     override suspend fun getCachedWeather(): WeatherForecast? = withContext(ioDispatcher) {
-        // Older releases saved a complete forecast in preferences but truncated Room's hourly data.
-        legacyCache.getWeather()?.let { weather ->
-            saveWeather(weather)
-            legacyCache.clear()
-            return@withContext weather
-        }
         database.withTransaction {
             val current = database.currentWeatherDao().getCurrentWeather() ?: return@withTransaction null
             val hourly = database.hourlyWeatherDao().getHourlyWeather()
@@ -57,7 +50,6 @@ class WeatherRepositoryImpl(
         )
         val weather = response.toForecast().copy(coordinates = Coordinates(latitude, longitude))
         saveWeather(weather)
-        legacyCache.clear()
         weather
     }
 
