@@ -22,7 +22,7 @@ Launch restores cached weather without requesting location or refreshing. Pull-t
 
 Scroll position expands the details, sunrise/sunset, and daily cards. Reduced-motion and screen-reader modes show full cards. Day/night colors follow the current forecast. Long location names wrap to two lines; tapping reveals the full location.
 
-The pull indicator uses animated dots, with explicit drawable invalidation and lifecycle cleanup. Search uses city/region rows and text for loading, empty, and failure states.
+The pull indicator uses animated dots, with explicit drawable invalidation and lifecycle cleanup. Search expands from its icon inside the header, preserving header height; closing reverses the transition. Reduced-motion mode switches immediately. Results use city/region rows and text for loading, empty, and failure states.
 
 Room schema version 2 preserves existing data through migration. Cached location labels are updated only when their coordinates match the stored forecast.
 

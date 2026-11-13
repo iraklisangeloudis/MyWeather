@@ -49,10 +49,12 @@ class WeatherUI(
     private val getCurrentLocation: GetCurrentLocationUseCase by inject()
     private val locationRequests = Channel<LocationRequest>(Channel.CONFLATED)
     private lateinit var binding: ActivityMainBinding
+    private lateinit var searchHeader: ExpandableSearchHeader
 
     fun createView(): View {
         if (context is AppCompatActivity) applyNightMode(context, viewModel.viewState.value.weather)
         binding = ActivityMainBinding.inflate(LayoutInflater.from(context))
+        searchHeader = ExpandableSearchHeader(binding)
         ViewCompat.setAccessibilityHeading(binding.searchResultsTitle, true)
         binding.locationHeader.setOnClickListener {
             if (fullLocationName.isNotBlank()) {
@@ -107,7 +109,7 @@ class WeatherUI(
         })
         activity.onBackPressedDispatcher.addCallback(activity, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (binding.searchRow.isVisible || binding.listViewLocations.isVisible) {
+                if (searchHeader.isExpanded || binding.listViewLocations.isVisible) {
                     closeSearch()
                 } else if (SystemClock.elapsedRealtime() - lastBackPress < 2000 && lastBackPress != 0L) {
                     activity.finish()
@@ -200,6 +202,7 @@ class WeatherUI(
 
     fun onDestroyView() {
         locationRequests.close()
+        searchHeader.dispose()
         locationDialog?.dismiss()
         locationDialog = null
         scrollExpansion?.dispose()
@@ -244,20 +247,17 @@ class WeatherUI(
     }
 
     fun toggleSearch() {
-        if (binding.searchRow.isVisible) closeSearch() else {
-            binding.searchRow.visibility = View.VISIBLE
+        if (searchHeader.isExpanded) closeSearch() else {
+            searchHeader.setExpanded(true)
             binding.searchResultsPanel.visibility = View.VISIBLE
             binding.searchStatus.setText(R.string.search_prompt)
             binding.swipeRefresh.visibility = View.GONE
-            binding.editTextLocation.requestFocus()
-            (context.getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager).showSoftInput(binding.editTextLocation, InputMethodManager.SHOW_IMPLICIT)
         }
     }
 
     fun closeSearch() {
+        searchHeader.setExpanded(false)
         binding.editTextLocation.setText("")
-        binding.editTextLocation.clearFocus()
-        binding.searchRow.visibility = View.GONE
         hideKeyboardAndListView()
         showMain()
     }
@@ -304,7 +304,7 @@ class WeatherUI(
     }
 
     private fun renderSearch(state: WeatherViewState) {
-        val showingSearch = binding.searchRow.isVisible || state.searchQuery.isNotBlank() || state.suggestions.isNotEmpty()
+        val showingSearch = searchHeader.isExpanded || state.searchQuery.isNotBlank() || state.suggestions.isNotEmpty()
         binding.searchResultsPanel.isVisible = showingSearch
         binding.swipeRefresh.isVisible = !showingSearch
         binding.searchStatus.text = when {
