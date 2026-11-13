@@ -39,3 +39,5 @@ On Windows, use `gradlew.bat`. Tests use fakes, intercepted requests, and Robole
 GitHub Actions runs tests, lint, and the debug build on pushes, pull requests, and manual dispatch. CI uses placeholder API keys, so its APK is a build artifact rather than a configured weather app.
 
 Meteocons Flat artwork is bundled as local Lottie resources. Only the current-condition icon animates; forecast/detail icons use static frames. Parsing is asynchronous and cached, and the hero pauses while search is open or the screen is stopped. System animation settings are respected. See `THIRD_PARTY_NOTICES.md` for source and license information.
+
+`WeatherBackgroundLayout` draws a native sky from the displayed weather code and day/night flag, with subtle clouds, precipitation, fog, or clear-night stars. Effects fade above forecast cards and pause off screen, during search, or when the screen stops. Reduced motion keeps a static sky; no additional requests or assets are needed.

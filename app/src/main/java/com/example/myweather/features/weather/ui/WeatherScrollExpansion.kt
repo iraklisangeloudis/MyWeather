@@ -10,7 +10,7 @@ import androidx.core.view.children
 import androidx.core.widget.NestedScrollView
 import kotlin.math.max
 
-class WeatherScrollExpansion(private val scroll: NestedScrollView, private val content: LinearLayout) {
+class WeatherScrollExpansion(private val scroll: NestedScrollView, private val content: LinearLayout, private val onPositionChanged: () -> Unit = {}) {
     private val layoutListener = android.view.ViewTreeObserver.OnGlobalLayoutListener { update() }
     private var updating = false
 
@@ -47,6 +47,7 @@ class WeatherScrollExpansion(private val scroll: NestedScrollView, private val c
             }
         } finally {
             updating = false
+            onPositionChanged()
         }
     }
 

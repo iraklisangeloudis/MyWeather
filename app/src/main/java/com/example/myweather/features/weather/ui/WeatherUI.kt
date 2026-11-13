@@ -5,6 +5,7 @@ import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.Configuration
+import android.graphics.Rect
 import android.os.Build
 import android.os.SystemClock
 import android.text.Editable
@@ -71,6 +72,8 @@ class WeatherUI(
         return binding.root
     }
 
+    private val heroBounds = Rect()
+    private val cardBounds = Rect()
     private var scrollExpansion: WeatherScrollExpansion? = null
     private var refreshing = false
     private var lastBackPress = 0L
@@ -84,7 +87,8 @@ class WeatherUI(
         binding.imageViewWeather.speed = .75f
         binding.recyclerViewTemperatures.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         binding.recyclerViewTemperatures.adapter = TemperatureAdapter()
-        scrollExpansion = WeatherScrollExpansion(binding.weatherScroll, binding.weatherContent)
+        scrollExpansion = WeatherScrollExpansion(binding.weatherScroll, binding.weatherContent, ::updateWeatherEffects)
+        binding.mainLayout.onSkyColorChanged = { activity.window.statusBarColor = it }
         binding.searchButton.setOnClickListener { toggleSearch() }
         binding.swipeRefresh.setOnChildScrollUpCallback { _, _ -> binding.weatherScroll.canScrollVertically(-1) }
         binding.swipeRefresh.setColorSchemeResources(R.color.weather_accent)
@@ -135,6 +139,7 @@ class WeatherUI(
                     }
                 } finally {
                     binding.imageViewWeather.pauseAnimation()
+                    binding.mainLayout.setMotionAllowed(false)
                 }
             }
         }
@@ -188,7 +193,7 @@ class WeatherUI(
 
     private fun updateSystemBars(activity: AppCompatActivity) {
         val night = context.resources.configuration.uiMode and Configuration.UI_MODE_NIGHT_MASK == Configuration.UI_MODE_NIGHT_YES
-        activity.window.statusBarColor = ContextCompat.getColor(context, R.color.weather_sky)
+        activity.window.statusBarColor = binding.mainLayout.skyColor
         activity.window.navigationBarColor = ContextCompat.getColor(context,
             if (Build.VERSION.SDK_INT >= 27 || night) R.color.weather_canvas else R.color.weather_ink)
         WindowCompat.getInsetsController(activity.window, activity.window.decorView).apply {
@@ -211,6 +216,7 @@ class WeatherUI(
     fun onDestroyView() {
         locationRequests.close()
         binding.imageViewWeather.cancelAnimation()
+        binding.mainLayout.dispose()
         searchHeader.dispose()
         locationDialog?.dismiss()
         locationDialog = null
@@ -233,6 +239,7 @@ class WeatherUI(
 
     fun render(state: WeatherViewState) {
         (context as? AppCompatActivity)?.let { applyNightMode(it, state.weather) }
+        binding.mainLayout.setWeather(state.weather?.current?.weatherCode, state.weather?.current?.isDay)
         val hasWeather = state.weather != null
         binding.emptyState.visibility = if (hasWeather) View.GONE else View.VISIBLE
         listOf(binding.weatherHero, binding.hourlyCard, binding.metricsSection, binding.sunSection, binding.dailySection).forEach {
@@ -253,7 +260,7 @@ class WeatherUI(
         renderRefresh(state.isLocating || state.isRefreshing)
         binding.swipeRefresh.isEnabled = state.searchQuery.isBlank()
         renderSearch(state)
-        updateWeatherAnimation()
+        updateWeatherEffects()
     }
 
     fun toggleSearch() {
@@ -262,7 +269,7 @@ class WeatherUI(
             binding.searchResultsPanel.visibility = View.VISIBLE
             binding.searchStatus.setText(R.string.search_prompt)
             binding.swipeRefresh.visibility = View.GONE
-            updateWeatherAnimation()
+            updateWeatherEffects()
         }
     }
 
@@ -283,12 +290,20 @@ class WeatherUI(
 
     fun showMain() {
         binding.swipeRefresh.visibility = View.VISIBLE
-        updateWeatherAnimation()
+        updateWeatherEffects()
     }
 
-    private fun updateWeatherAnimation() {
+    private fun updateWeatherEffects() {
         val started = (context as? LifecycleOwner)?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED) == true
-        if (started && binding.swipeRefresh.isVisible && binding.weatherHero.isVisible && ValueAnimator.areAnimatorsEnabled()) {
+        val visible = binding.swipeRefresh.isVisible && binding.weatherHero.isVisible &&
+            binding.weatherHero.getGlobalVisibleRect(heroBounds)
+        if (visible) {
+            cardBounds.set(0, 0, binding.hourlyCard.width, 0)
+            binding.mainLayout.offsetDescendantRectToMyCoords(binding.hourlyCard, cardBounds)
+            binding.mainLayout.setWeatherArea(cardBounds.top.coerceAtLeast(0).toFloat())
+        } else binding.mainLayout.setWeatherArea(0f)
+        binding.mainLayout.setMotionAllowed(started && visible)
+        if (started && visible && ValueAnimator.areAnimatorsEnabled()) {
             if (!binding.imageViewWeather.isAnimating) binding.imageViewWeather.resumeAnimation()
         } else {
             binding.imageViewWeather.pauseAnimation()
