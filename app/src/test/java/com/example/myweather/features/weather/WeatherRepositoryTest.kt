@@ -5,6 +5,7 @@ import android.content.Context
 import androidx.room.Room
 import com.example.myweather.database.WeatherDatabase
 import com.example.myweather.features.weather.data.WeatherRepositoryImpl
+import com.example.myweather.features.weather.data.WeatherCacheNotifier
 import com.example.myweather.features.weather.data.api.WeatherApi
 import com.example.myweather.features.weather.data.api.model.*
 import kotlinx.coroutines.runBlocking
@@ -25,6 +26,9 @@ class WeatherRepositoryTest {
     private lateinit var repository: WeatherRepositoryImpl
     private var response = response(20.0)
     private var cacheChanges = 0
+    private val cacheNotifier = object : WeatherCacheNotifier {
+        override fun notifyChanged() { cacheChanges++ }
+    }
     private val api = object : WeatherApi {
         override suspend fun fetchWeather(latitude: Double, longitude: Double, current: String,
             hourly: String, daily: String, timezone: String) = response
@@ -33,7 +37,7 @@ class WeatherRepositoryTest {
     @Before fun setUp() {
         context = RuntimeEnvironment.getApplication()
         database = Room.inMemoryDatabaseBuilder(context, WeatherDatabase::class.java).build()
-        repository = WeatherRepositoryImpl(api, database, onCacheChanged = { cacheChanges++ })
+        repository = WeatherRepositoryImpl(api, database, cacheNotifier)
     }
 
     @After fun tearDown() = database.close()
@@ -41,7 +45,7 @@ class WeatherRepositoryTest {
     @Test fun completeForecastSurvivesCacheRestoration() = runBlocking {
         assertNull(repository.getCachedWeather())
         val fresh = repository.refreshWeather(37.98, 23.72)
-        val restored = WeatherRepositoryImpl(api, database).getCachedWeather()
+        val restored = WeatherRepositoryImpl(api, database, cacheNotifier).getCachedWeather()
         assertEquals(fresh, restored)
         assertEquals(48, restored!!.hourly.time.size)
         assertEquals(1, cacheChanges)

@@ -7,6 +7,7 @@ import com.example.myweather.features.location.data.CityNameRepository
 import com.example.myweather.features.location.data.LocationRepository
 import com.example.myweather.features.location.domain.GetCurrentLocationUseCase
 import com.example.myweather.features.weather.data.WeatherRepository
+import com.example.myweather.features.weather.data.WeatherCacheNotifier
 import com.example.myweather.features.weather.domain.GetWeatherForecastUseCase
 import com.example.myweather.features.weather.domain.RefreshSavedWeatherUseCase
 import com.example.myweather.features.weather.widget.WeatherWidgetDataSource
@@ -39,6 +40,7 @@ class AppModulesTest {
         try {
             val koin = app.koin
             assertSame(koin.get<WeatherRepository>(), koin.get<WeatherRepository>())
+            assertSame(koin.get<WeatherCacheNotifier>(), koin.get<WeatherCacheNotifier>())
             assertNotNull(koin.get<LocationRepository>())
             assertNotNull(koin.get<CityNameRepository>())
             assertNotNull(koin.get<GetCurrentLocationUseCase>())
