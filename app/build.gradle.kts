@@ -54,6 +54,7 @@ android {
 }
 
 dependencies {
+    implementation("com.airbnb.android:lottie:6.6.7")
     implementation("androidx.swiperefreshlayout:swiperefreshlayout:1.1.0")
     // Koin 3.5 keeps the existing Kotlin 1.9 toolchain.
     implementation("io.insert-koin:koin-android:3.5.6")

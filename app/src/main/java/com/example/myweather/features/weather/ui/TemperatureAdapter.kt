@@ -3,7 +3,7 @@ package com.example.myweather.features.weather.ui
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.ImageView
+import com.airbnb.lottie.LottieAnimationView
 import android.widget.TextView
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -21,7 +21,7 @@ class TemperatureAdapter : ListAdapter<HourlyForecast, TemperatureAdapter.ViewHo
 
     class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
         val timeTextView: TextView = view.findViewById(R.id.textViewItemTime)
-        val weatherImageView: ImageView = view.findViewById(R.id.imageViewItemWeather)
+        val weatherImageView: LottieAnimationView = view.findViewById(R.id.imageViewItemWeather)
         val temperatureTextView: TextView = view.findViewById(R.id.textViewItemTemperature)
     }
 
@@ -36,7 +36,7 @@ class TemperatureAdapter : ListAdapter<HourlyForecast, TemperatureAdapter.ViewHo
 
         holder.temperatureTextView.text = holder.itemView.context.getString(R.string.temperature_value, data.temperature)
 
-        WeatherTheme.bindIcon(holder.weatherImageView, data.weatherCode, data.isDay)
+        WeatherIcons.bind(holder.weatherImageView, data.weatherCode, data.isDay)
     }
 
 }

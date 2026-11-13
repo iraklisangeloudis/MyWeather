@@ -48,4 +48,7 @@
     <string name="search_failed">Unable to search right now. Check your connection and try again.</string>
     <string name="location_details">Location</string>
     <string name="close_search">Close search</string>
+    <string name="condition_mostly_clear">Mostly clear</string>
+    <string name="condition_overcast">Overcast</string>
+    <string name="condition_heavy_storm">Heavy thunderstorm</string>
 </resources>

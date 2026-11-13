@@ -37,3 +37,5 @@ Use JDK 17; Gradle's daemon JVM configuration pins it.
 On Windows, use `gradlew.bat`. Tests use fakes, intercepted requests, and Robolectric; live API and device checks are separate.
 
 GitHub Actions runs tests, lint, and the debug build on pushes, pull requests, and manual dispatch. CI uses placeholder API keys, so its APK is a build artifact rather than a configured weather app.
+
+Meteocons Flat artwork is bundled as local Lottie resources. Only the current-condition icon animates; forecast/detail icons use static frames. Parsing is asynchronous and cached, and the hero pauses while search is open or the screen is stopped. System animation settings are respected. See `THIRD_PARTY_NOTICES.md` for source and license information.

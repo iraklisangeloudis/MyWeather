@@ -2,6 +2,7 @@ package com.example.myweather.features.weather.ui
 
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import android.animation.ValueAnimator
 import android.content.Context
 import android.content.res.Configuration
 import android.os.Build
@@ -20,6 +21,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.isVisible
 import androidx.core.view.accessibility.AccessibilityNodeInfoCompat
+import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
@@ -78,6 +80,8 @@ class WeatherUI(
     /** View setup and state observation belong to the screen, while the host owns permissions. */
     fun onViewCreated() {
         collectLocationRequests()
+        binding.imageViewWeather.repeatCount = ValueAnimator.INFINITE
+        binding.imageViewWeather.speed = .75f
         binding.recyclerViewTemperatures.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         binding.recyclerViewTemperatures.adapter = TemperatureAdapter()
         scrollExpansion = WeatherScrollExpansion(binding.weatherScroll, binding.weatherContent)
@@ -121,12 +125,16 @@ class WeatherUI(
         })
         activity.lifecycleScope.launch {
             activity.repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.viewState.collect { state ->
-                    render(state)
-                    state.message?.let {
-                        Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-                        viewModel.messageShown(it)
+                try {
+                    viewModel.viewState.collect { state ->
+                        render(state)
+                        state.message?.let {
+                            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
+                            viewModel.messageShown(it)
+                        }
                     }
+                } finally {
+                    binding.imageViewWeather.pauseAnimation()
                 }
             }
         }
@@ -202,6 +210,7 @@ class WeatherUI(
 
     fun onDestroyView() {
         locationRequests.close()
+        binding.imageViewWeather.cancelAnimation()
         searchHeader.dispose()
         locationDialog?.dismiss()
         locationDialog = null
@@ -244,6 +253,7 @@ class WeatherUI(
         renderRefresh(state.isLocating || state.isRefreshing)
         binding.swipeRefresh.isEnabled = state.searchQuery.isBlank()
         renderSearch(state)
+        updateWeatherAnimation()
     }
 
     fun toggleSearch() {
@@ -252,6 +262,7 @@ class WeatherUI(
             binding.searchResultsPanel.visibility = View.VISIBLE
             binding.searchStatus.setText(R.string.search_prompt)
             binding.swipeRefresh.visibility = View.GONE
+            updateWeatherAnimation()
         }
     }
 
@@ -272,6 +283,17 @@ class WeatherUI(
 
     fun showMain() {
         binding.swipeRefresh.visibility = View.VISIBLE
+        updateWeatherAnimation()
+    }
+
+    private fun updateWeatherAnimation() {
+        val started = (context as? LifecycleOwner)?.lifecycle?.currentState?.isAtLeast(Lifecycle.State.STARTED) == true
+        if (started && binding.swipeRefresh.isVisible && binding.weatherHero.isVisible && ValueAnimator.areAnimatorsEnabled()) {
+            if (!binding.imageViewWeather.isAnimating) binding.imageViewWeather.resumeAnimation()
+        } else {
+            binding.imageViewWeather.pauseAnimation()
+            if (!ValueAnimator.areAnimatorsEnabled()) binding.imageViewWeather.progress = 0f
+        }
     }
 
     private fun renderWeather(weather: WeatherForecastDetails) {
@@ -283,7 +305,7 @@ class WeatherUI(
         binding.textViewHumidity.text = context.getString(R.string.humidity_value, current.humidity)
         binding.textViewWindSpeed.text = context.getString(R.string.wind_value, current.windSpeed)
         binding.textViewFeelsLike.text = context.getString(R.string.temperature_value, current.apparentTemperature)
-        WeatherTheme.bindIcon(binding.imageViewWeather, current.weatherCode, current.isDay)
+        WeatherIcons.bind(binding.imageViewWeather, current.weatherCode, current.isDay)
         binding.textViewTime.text = context.getString(R.string.weather_as_of, weather.weatherAsOf)
         (binding.recyclerViewTemperatures.adapter as TemperatureAdapter).submitList(weather.hourly)
         binding.sunRiseTextView.text = weather.sunrise
@@ -295,7 +317,7 @@ class WeatherUI(
         weather.daily.forEach { day ->
             val row = ItemDailyWeatherBinding.inflate(LayoutInflater.from(context), binding.dailyWeatherLayout, false)
             row.dayName.text = day.day
-            WeatherTheme.bindIcon(row.dayIcon, day.weatherCode, 1)
+            WeatherIcons.bind(row.dayIcon, day.weatherCode, 1)
             row.dayPrecipitation.text = context.getString(R.string.humidity_value, day.precipitation)
             row.dayMaximum.text = context.getString(R.string.temperature_value, day.maximum)
             row.dayMinimum.text = context.getString(R.string.temperature_value, day.minimum)
