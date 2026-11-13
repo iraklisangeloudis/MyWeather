@@ -15,18 +15,19 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.repeatOnLifecycle
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.withTimeoutOrNull
 import com.example.myweather.presentation.utils.LocationHandler
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import com.example.myweather.databinding.ActivityMainBinding
 import com.example.myweather.presentation.adapter.TemperatureAdapter
-import com.example.myweather.presentation.ui.WeatherUiController
+import com.example.myweather.presentation.ui.WeatherRenderer
 import com.example.myweather.presentation.utils.LocationHandler.requestLocationPermission
-import com.example.myweather.presentation.viewmodel.CityNameState
-import com.example.myweather.presentation.viewmodel.LocationState
-import com.example.myweather.presentation.viewmodel.WeatherState
 import com.example.myweather.presentation.viewmodel.WeatherViewModel
 
 class MainActivity : AppCompatActivity() {
@@ -34,8 +35,8 @@ class MainActivity : AppCompatActivity() {
     private val viewModel: WeatherViewModel by viewModels {
         (application as WeatherApplication).container.viewModelFactory
     }
-    private var locationJob: Job? = null
-    private lateinit var uiController: WeatherUiController
+    private val locationRequests = Channel<LocationRequest>(Channel.CONFLATED)
+    private lateinit var renderer: WeatherRenderer
     private val LOCATION_PERMISSION_REQUEST_CODE = 1
     private var isKeyboardVisible = false
     private var backPressCount = 0
@@ -46,13 +47,13 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        uiController = WeatherUiController(binding, this, window) { location ->
-            locationJob?.cancel()
-            viewModel.selectLocation(location.latitude, location.longitude)
+        renderer = WeatherRenderer(binding, this, window) { location ->
+            locationRequests.trySend(LocationRequest.Selected(location.latitude, location.longitude))
         }
         setupRecyclerView()
         setupTheme()
-        setupViewModelObserver()
+        collectScreenState()
+        collectLocationRequests()
         setupListeners()
         if (savedInstanceState == null && LocationHandler.isLocationPermissionGranted(this)) {
             checkLocationAndFetchData()
@@ -63,7 +64,7 @@ class MainActivity : AppCompatActivity() {
         if (isKeyboardVisible || binding.listViewLocations.visibility == View.VISIBLE) {
             // Dismiss the keyboard and list view
             viewModel.searchLocations("")
-            uiController.hideKeyboardAndListView()
+            renderer.hideKeyboardAndListView()
         } else {
             if (backPressCount == 0) {
                 backPressCount++
@@ -76,7 +77,7 @@ class MainActivity : AppCompatActivity() {
             }
         }
         binding.editTextLocation.clearFocus()
-        uiController.showMain()
+        renderer.showMain()
     }
 
     override fun onRequestPermissionsResult(
@@ -107,29 +108,27 @@ class MainActivity : AppCompatActivity() {
         window.navigationBarColor = ContextCompat.getColor(this, R.color.Clear_Day_Blue)
     }
 
-    //ViewModel Observer
-    private fun setupViewModelObserver() {
-        viewModel.weatherState.observe(this) { state ->
-            when (state) {
-                is WeatherState.Loading -> uiController.showLoading(true)
-                is WeatherState.Success -> uiController.renderWeather(state.weather)
-                is WeatherState.Error -> {
-                    state.cachedWeather?.let { uiController.renderWeather(it) } ?: uiController.handleWeatherFailure()
-                    Toast.makeText(this, state.message, Toast.LENGTH_SHORT).show()
+    private fun collectScreenState() {
+        lifecycleScope.launch {
+            repeatOnLifecycle(Lifecycle.State.STARTED) {
+                viewModel.screenState.collect { state ->
+                    renderer.render(state)
+                    state.message?.let { message ->
+                        Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
+                        viewModel.messageShown(message)
+                    }
                 }
             }
         }
-        viewModel.cityNameState.observe(this) { state ->
-            when (state) {
-                is CityNameState.Success -> binding.textViewCityName.text = state.cityName
-                CityNameState.Error -> binding.textViewCityName.text = ""
-            }
-        }
-        viewModel.locationState.observe(this) { state ->
-            when (state) {
-                LocationState.Idle -> uiController.dismissSuggestions()
-                is LocationState.Success -> uiController.updateLocationList(state.locations)
-                is LocationState.Error -> Toast.makeText(this@MainActivity, state.message, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun collectLocationRequests() {
+        lifecycleScope.launch {
+            locationRequests.receiveAsFlow().collectLatest { request ->
+                when (request) {
+                    LocationRequest.Device -> lookupDeviceLocation()
+                    is LocationRequest.Selected -> viewModel.selectLocation(request.latitude, request.longitude)
+                }
             }
         }
     }
@@ -166,36 +165,42 @@ class MainActivity : AppCompatActivity() {
         })
     }
     private fun checkLocationAndFetchData() {
-        locationJob?.cancel()
-        locationJob = lifecycleScope.launch {
-            if (!LocationHandler.isLocationPermissionGranted(this@MainActivity)) {
-                requestLocationPermission(this@MainActivity, LOCATION_PERMISSION_REQUEST_CODE)
-                return@launch
+        locationRequests.trySend(LocationRequest.Device)
+    }
+
+    private suspend fun lookupDeviceLocation() {
+        if (!LocationHandler.isLocationPermissionGranted(this)) {
+            requestLocationPermission(this, LOCATION_PERMISSION_REQUEST_CODE)
+            return
+        }
+        if (!LocationHandler.isLocationEnabled(this)) {
+            viewModel.locationLookupFinished("Location disabled")
+            return
+        }
+        viewModel.locationLookupStarted()
+        try {
+            val location = withTimeoutOrNull(15_000) { LocationHandler.getLocation(this@MainActivity) }
+            if (location == null) {
+                viewModel.locationLookupFinished("Unable to get location")
+            } else {
+                viewModel.selectLocation(location.latitude, location.longitude)
             }
-            if (!LocationHandler.isLocationEnabled(this@MainActivity)) {
-                Toast.makeText(this@MainActivity, "Location disabled", Toast.LENGTH_SHORT).show()
-                return@launch
-            }
-            viewModel.searchLocations("")
-            uiController.showLoading(true)
-            try {
-                val location = withTimeoutOrNull(15_000) { LocationHandler.getLocation(this@MainActivity) }
-                if (location == null) {
-                    uiController.showLoading(false)
-                    Toast.makeText(this@MainActivity, "Unable to get location", Toast.LENGTH_SHORT).show()
-                } else {
-                    viewModel.selectLocation(location.latitude, location.longitude)
-                }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (_: Exception) {
-                uiController.showLoading(false)
-                Toast.makeText(this@MainActivity, "Unable to get location", Toast.LENGTH_SHORT).show()
-            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (_: Exception) {
+            viewModel.locationLookupFinished("Unable to get location")
+        } finally {
+            viewModel.locationLookupFinished()
         }
     }
 
+    private sealed interface LocationRequest {
+        data object Device : LocationRequest
+        data class Selected(val latitude: Double, val longitude: Double) : LocationRequest
+    }
+
     override fun onDestroy() {
+        locationRequests.close()
         handler.removeCallbacksAndMessages(null)
         super.onDestroy()
     }

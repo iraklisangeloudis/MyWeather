@@ -1,106 +1,147 @@
 package com.example.myweather.presentation.viewmodel
 
 import android.util.Log
-import androidx.lifecycle.LiveData
-import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.example.myweather.data.repository.*
 import com.example.myweather.model.LocationSuggestion
 import com.example.myweather.presentation.ui.WeatherUiModel
 import com.example.myweather.presentation.ui.toUiModel
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.*
+import kotlinx.coroutines.withContext
 
+@OptIn(ExperimentalCoroutinesApi::class)
 class WeatherViewModel(
     private val weatherRepository: WeatherRepository,
     private val cityNameRepository: CityNameRepository,
     private val locationRepository: LocationRepository,
     private val computationDispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : ViewModel() {
-    private val _weatherState = MutableLiveData<WeatherState>()
-    val weatherState: LiveData<WeatherState> = _weatherState
-    private val _cityNameState = MutableLiveData<CityNameState>()
-    val cityNameState: LiveData<CityNameState> = _cityNameState
-    private val _locationState = MutableLiveData<LocationState>()
-    val locationState: LiveData<LocationState> = _locationState
-    private val cacheJob: Job
-    private var weatherJob: Job? = null
-    private var searchJob: Job? = null
-    private var searchVersion = 0
-    private var displayedWeather: WeatherUiModel? = null
+    private val _screenState = MutableStateFlow(WeatherScreenState())
+    val screenState: StateFlow<WeatherScreenState> = _screenState.asStateFlow()
+    private val searchQuery = MutableStateFlow("")
+    // Replay keeps the latest selection if it arrives while the startup cache is loading.
+    private val selections = MutableSharedFlow<Coordinates>(
+        replay = 1, onBufferOverflow = BufferOverflow.DROP_OLDEST
+    )
 
     init {
-        cacheJob = viewModelScope.launch {
-            try {
-                weatherRepository.getCachedWeather()?.let { cached ->
-                    val ui = withContext(computationDispatcher) { cached.toUiModel() }
-                    displayedWeather = ui
-                    _weatherState.value = WeatherState.Success(ui)
+        selections.flatMapLatest(::weatherFor)
+            .buffer(0)
+            .onStart {
+                try {
+                    weatherRepository.getCachedWeather()?.let { cached ->
+                        emit(WeatherUpdate.Content(withContext(computationDispatcher) { cached.toUiModel() }, ""))
+                    }
+                } catch (e: kotlinx.coroutines.CancellationException) {
+                    throw e
+                } catch (e: Exception) {
+                    Log.w("WeatherViewModel", requestFailureMessage(e))
                 }
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                Log.w("WeatherViewModel", requestFailureMessage(e))
             }
+            .onEach { update ->
+                _screenState.update { state ->
+                    when (update) {
+                        WeatherUpdate.Loading -> state.copy(isRefreshing = true)
+                        is WeatherUpdate.Content -> state.copy(weather = update.weather, cityName = update.cityName, isRefreshing = false)
+                        WeatherUpdate.Failed -> state.copy(isRefreshing = false, message = "Unable to refresh weather")
+                    }
+                }
+            }
+            .launchIn(viewModelScope)
+
+        searchQuery.transformLatest { query ->
+            emit(SearchUpdate(query, isSearching = query.isNotEmpty()))
+            if (query.isNotEmpty()) {
+                // Keep the debounce inside transformLatest: new input cancels the request immediately.
+                delay(1000)
+                val locations = locationRepository.fetchLocationSuggestions(query)
+                emit(SearchUpdate(query, suggestions = locations.orEmpty(), failed = locations == null))
+            }
+        }.buffer(0)
+            .onEach { update ->
+                if (update.query == searchQuery.value) {
+                    _screenState.update { state ->
+                        state.copy(searchQuery = update.query, isSearching = update.isSearching,
+                            suggestions = update.suggestions,
+                            message = if (update.failed) "Failed to load location data" else state.message)
+                    }
+                }
+            }
+            .launchIn(viewModelScope)
+    }
+
+    private fun weatherFor(coordinates: Coordinates): Flow<WeatherUpdate> {
+        val forecast = flow<ForecastUpdate> {
+            emit(ForecastUpdate.Loading)
+            val weather = weatherRepository.refreshWeather(coordinates.latitude, coordinates.longitude)
+            emit(ForecastUpdate.Content(withContext(computationDispatcher) { weather.toUiModel() }))
+        }.catch { error ->
+            Log.w("WeatherViewModel", requestFailureMessage(error))
+            emit(ForecastUpdate.Failed)
         }
+        val cityName = flow {
+            emit("")
+            emit(cityNameRepository.fetchCityName(coordinates.latitude, coordinates.longitude).orEmpty())
+        }.catch { error ->
+            Log.w("WeatherViewModel", requestFailureMessage(error))
+            emit("")
+        }
+        return combine(forecast, cityName) { weather, name ->
+            when (weather) {
+                ForecastUpdate.Loading -> WeatherUpdate.Loading
+                is ForecastUpdate.Content -> WeatherUpdate.Content(weather.weather, name)
+                ForecastUpdate.Failed -> WeatherUpdate.Failed
+            }
+        }.distinctUntilChanged()
     }
 
     fun selectLocation(latitude: Double, longitude: Double) {
-        weatherJob?.cancel()
-        weatherJob = viewModelScope.launch {
-            // Finish restoration first so a failed initial refresh can keep showing cached data.
-            cacheJob.join()
-            _weatherState.value = WeatherState.Loading
-            _cityNameState.value = CityNameState.Success("")
-            val cityJob = launch {
-                val name = cityNameRepository.fetchCityName(latitude, longitude)
-                ensureActive()
-                _cityNameState.value = name?.let { CityNameState.Success(it) } ?: CityNameState.Error
-            }
-            try {
-                val weather = weatherRepository.refreshWeather(latitude, longitude)
-                val ui = withContext(computationDispatcher) { weather.toUiModel() }
-                displayedWeather = ui
-                _weatherState.value = WeatherState.Success(ui)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: Exception) {
-                cityJob.cancel()
-                Log.w("WeatherViewModel", requestFailureMessage(e))
-                _weatherState.value = WeatherState.Error("Unable to refresh weather", displayedWeather)
-                _cityNameState.value = CityNameState.Error
-            }
-        }
+        searchLocations("")
+        _screenState.update { it.copy(isLocating = false, message = null) }
+        selections.tryEmit(Coordinates(latitude, longitude))
     }
 
     fun searchLocations(query: String) {
-        searchJob?.cancel()
-        val version = ++searchVersion
         val text = query.trim()
-        _locationState.value = LocationState.Idle
-        if (text.isEmpty()) return
-        searchJob = viewModelScope.launch {
-            delay(1000)
-            val locations = locationRepository.fetchLocationSuggestions(text)
-            ensureActive()
-            if (version != searchVersion) return@launch
-            _locationState.value = locations?.let { LocationState.Success(it) }
-                ?: LocationState.Error("Failed to load location data")
-        }
+        if (text == searchQuery.value) return
+        searchQuery.value = text
+        _screenState.update { it.copy(searchQuery = text, suggestions = emptyList(), isSearching = text.isNotEmpty()) }
     }
-}
 
-sealed class WeatherState {
-    data object Loading : WeatherState()
-    data class Success(val weather: WeatherUiModel) : WeatherState()
-    data class Error(val message: String, val cachedWeather: WeatherUiModel?) : WeatherState()
-}
-sealed class CityNameState {
-    data class Success(val cityName: String) : CityNameState()
-    data object Error : CityNameState()
-}
-sealed class LocationState {
-    data object Idle : LocationState()
-    data class Success(val locations: List<LocationSuggestion>) : LocationState()
-    data class Error(val message: String) : LocationState()
+    fun locationLookupStarted() {
+        searchLocations("")
+        _screenState.update { it.copy(isLocating = true, message = null) }
+    }
+
+    fun locationLookupFinished(message: String? = null) {
+        _screenState.update { it.copy(isLocating = false, message = message ?: it.message) }
+    }
+
+    fun messageShown(message: String) {
+        _screenState.update { if (it.message == message) it.copy(message = null) else it }
+    }
+
+    private data class Coordinates(val latitude: Double, val longitude: Double)
+    private data class SearchUpdate(
+        val query: String,
+        val isSearching: Boolean = false,
+        val suggestions: List<LocationSuggestion> = emptyList(),
+        val failed: Boolean = false
+    )
+    private sealed interface ForecastUpdate {
+        data object Loading : ForecastUpdate
+        data class Content(val weather: WeatherUiModel) : ForecastUpdate
+        data object Failed : ForecastUpdate
+    }
+    private sealed interface WeatherUpdate {
+        data object Loading : WeatherUpdate
+        data class Content(val weather: WeatherUiModel, val cityName: String) : WeatherUpdate
+        data object Failed : WeatherUpdate
+    }
 }
