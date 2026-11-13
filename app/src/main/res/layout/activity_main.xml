@@ -188,6 +188,9 @@
                         <TextView
                             style="@style/WeatherTitle"
                             android:text="@string/next_hours"
+                            android:gravity="center_vertical"
+                            android:drawablePadding="8dp"
+                            app:drawableStartCompat="@drawable/weather_clock_icon"
                             android:layout_marginBottom="12dp" />
                         <androidx.recyclerview.widget.RecyclerView
                             android:id="@+id/recyclerViewTemperatures"
@@ -205,7 +208,12 @@
                         app:summaryWhenCompact="true"
                         app:compactContentOffset="30dp"
                         android:visibility="gone">
-                        <TextView style="@style/WeatherTitle" android:text="@string/weather_details" />
+                        <TextView
+                            style="@style/WeatherTitle"
+                            android:text="@string/weather_details"
+                            android:gravity="center_vertical"
+                            android:drawablePadding="8dp"
+                            app:drawableStartCompat="@drawable/weather_details_icon" />
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
@@ -285,7 +293,12 @@
                         app:compactHeight="76dp"
                         app:summaryWhenCompact="true"
                         android:visibility="gone">
-                        <TextView style="@style/WeatherTitle" android:text="@string/sun_times" />
+                        <TextView
+                            style="@style/WeatherTitle"
+                            android:text="@string/sun_times"
+                            android:gravity="center_vertical"
+                            android:drawablePadding="8dp"
+                            app:drawableStartCompat="@drawable/weather_horizon_icon" />
                         <LinearLayout
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
@@ -361,6 +374,9 @@
                                 style="@style/WeatherTitle"
                                 android:layout_width="0dp"
                                 android:layout_weight="1"
+                                android:gravity="center_vertical"
+                                android:drawablePadding="8dp"
+                                app:drawableStartCompat="@drawable/weather_calendar_icon"
                                 android:text="@string/daily_forecast" />
                             <TextView android:id="@+id/dayCount" style="@style/WeatherLabel" />
                         </LinearLayout>
