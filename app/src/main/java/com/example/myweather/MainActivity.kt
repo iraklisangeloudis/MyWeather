@@ -1,5 +1,6 @@
 package com.example.myweather
 
+import android.Manifest
 import android.content.pm.PackageManager
 import android.graphics.Rect
 import android.os.Bundle
@@ -10,33 +11,32 @@ import android.text.TextWatcher
 import android.util.Log
 import android.view.View
 import android.widget.*
-import androidx.activity.viewModels
 import androidx.appcompat.app.AppCompatActivity
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import androidx.recyclerview.widget.LinearLayoutManager
-import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.lifecycleScope
 import androidx.lifecycle.repeatOnLifecycle
+import androidx.recyclerview.widget.LinearLayoutManager
+import com.example.myweather.databinding.ActivityMainBinding
+import com.example.myweather.features.location.domain.GetCurrentLocationUseCase
+import com.example.myweather.features.weather.ui.TemperatureAdapter
+import com.example.myweather.features.weather.ui.WeatherUI
+import com.example.myweather.features.weather.ui.WeatherViewModel
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.receiveAsFlow
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.withTimeoutOrNull
-import com.example.myweather.presentation.utils.LocationHandler
 import kotlinx.coroutines.launch
-import com.example.myweather.databinding.ActivityMainBinding
-import com.example.myweather.presentation.adapter.TemperatureAdapter
-import com.example.myweather.presentation.ui.WeatherRenderer
-import com.example.myweather.presentation.utils.LocationHandler.requestLocationPermission
-import com.example.myweather.presentation.viewmodel.WeatherViewModel
+import org.koin.android.ext.android.inject
+import org.koin.androidx.viewmodel.ext.android.viewModel
 
 class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
-    private val viewModel: WeatherViewModel by viewModels {
-        (application as WeatherApplication).container.viewModelFactory
-    }
+    private val viewModel: WeatherViewModel by viewModel()
+    private val getCurrentLocation: GetCurrentLocationUseCase by inject()
     private val locationRequests = Channel<LocationRequest>(Channel.CONFLATED)
-    private lateinit var renderer: WeatherRenderer
+    private lateinit var renderer: WeatherUI
     private val LOCATION_PERMISSION_REQUEST_CODE = 1
     private var isKeyboardVisible = false
     private var backPressCount = 0
@@ -47,15 +47,15 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        renderer = WeatherRenderer(binding, this, window) { location ->
+        renderer = WeatherUI(binding, this, window) { location ->
             locationRequests.trySend(LocationRequest.Selected(location.latitude, location.longitude))
         }
         setupRecyclerView()
         setupTheme()
-        collectScreenState()
+        collectViewState()
         collectLocationRequests()
         setupListeners()
-        if (savedInstanceState == null && LocationHandler.isLocationPermissionGranted(this)) {
+        if (savedInstanceState == null && ContextCompat.checkSelfPermission(this, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED) {
             checkLocationAndFetchData()
         }
     }
@@ -108,10 +108,10 @@ class MainActivity : AppCompatActivity() {
         window.navigationBarColor = ContextCompat.getColor(this, R.color.Clear_Day_Blue)
     }
 
-    private fun collectScreenState() {
+    private fun collectViewState() {
         lifecycleScope.launch {
             repeatOnLifecycle(Lifecycle.State.STARTED) {
-                viewModel.screenState.collect { state ->
+                viewModel.viewState.collect { state ->
                     renderer.render(state)
                     state.message?.let { message ->
                         Toast.makeText(this@MainActivity, message, Toast.LENGTH_SHORT).show()
@@ -169,21 +169,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private suspend fun lookupDeviceLocation() {
-        if (!LocationHandler.isLocationPermissionGranted(this)) {
-            requestLocationPermission(this, LOCATION_PERMISSION_REQUEST_CODE)
-            return
-        }
-        if (!LocationHandler.isLocationEnabled(this)) {
-            viewModel.locationLookupFinished("Location disabled")
-            return
-        }
         viewModel.locationLookupStarted()
         try {
-            val location = withTimeoutOrNull(15_000) { LocationHandler.getLocation(this@MainActivity) }
-            if (location == null) {
-                viewModel.locationLookupFinished("Unable to get location")
-            } else {
-                viewModel.selectLocation(location.latitude, location.longitude)
+            when (val result = getCurrentLocation()) {
+                GetCurrentLocationUseCase.Result.PermissionRequired -> ActivityCompat.requestPermissions(
+                    this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
+                GetCurrentLocationUseCase.Result.Disabled -> viewModel.locationLookupFinished("Location disabled")
+                GetCurrentLocationUseCase.Result.Unavailable -> viewModel.locationLookupFinished("Unable to get location")
+                is GetCurrentLocationUseCase.Result.Located ->
+                    viewModel.selectLocation(result.coordinates.latitude, result.coordinates.longitude)
             }
         } catch (e: CancellationException) {
             throw e
