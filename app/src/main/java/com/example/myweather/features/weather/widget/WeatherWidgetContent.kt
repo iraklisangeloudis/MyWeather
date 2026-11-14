@@ -70,7 +70,7 @@ internal fun WidgetContent(context: Context, snapshot: WidgetSnapshot?, status: 
             } else {
                 CompactConditions(context, snapshot, tall, GlanceModifier.fillMaxWidth().defaultWeight())
             }
-            WidgetFooter(context, snapshot.weather, status)
+            WidgetFooter(context, status)
         }
     }
 }
@@ -190,7 +190,7 @@ private fun WeatherArtwork(bitmap: Bitmap?, size: Int, description: String? = nu
 
 @SuppressLint("RestrictedApi")
 @Composable
-private fun WidgetFooter(context: Context, weather: WeatherForecastDetails, status: String) {
+private fun WidgetFooter(context: Context, status: String) {
     Spacer(GlanceModifier.height(8.dp))
     Box(GlanceModifier.fillMaxWidth().height(1.dp).background(divider)) {}
     Row(GlanceModifier.fillMaxWidth().padding(top = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -198,9 +198,13 @@ private fun WidgetFooter(context: Context, weather: WeatherForecastDetails, stat
             "loading" -> context.getString(R.string.refreshing_weather)
             "failed" -> context.getString(R.string.widget_refresh_failed)
             "location" -> context.getString(R.string.widget_no_coordinates)
-            else -> context.getString(R.string.weather_as_of, weather.weatherAsOf)
+            else -> null
         }
-        Text(label, GlanceModifier.defaultWeight(), style = TextStyle(color = muted, fontSize = 10.sp), maxLines = 2)
+        if (label != null) {
+            Text(label, GlanceModifier.defaultWeight(), style = TextStyle(color = muted, fontSize = 10.sp), maxLines = 2)
+        } else {
+            Spacer(GlanceModifier.defaultWeight())
+        }
         RefreshControl(context, status == "loading")
     }
 }
