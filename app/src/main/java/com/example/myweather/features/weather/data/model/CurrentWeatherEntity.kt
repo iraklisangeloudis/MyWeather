@@ -16,5 +16,6 @@ data class CurrentWeatherEntity(
     val windSpeed: Double,
     @ColumnInfo(defaultValue = "''") val locationName: String = "",
     val latitude: Double? = null,
-    val longitude: Double? = null
+    val longitude: Double? = null,
+    @ColumnInfo(defaultValue = "NULL") val checkedAtMillis: Long? = null
 )

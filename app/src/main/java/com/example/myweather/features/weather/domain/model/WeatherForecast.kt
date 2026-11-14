@@ -7,7 +7,8 @@ data class WeatherForecast(
     val hourly: HourlyWeather,
     val daily: DailyWeather,
     val locationName: String = "",
-    val coordinates: Coordinates? = null
+    val coordinates: Coordinates? = null,
+    val checkedAtMillis: Long? = null
 )
 
 data class CurrentWeather(

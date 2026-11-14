@@ -11,7 +11,7 @@ import com.example.myweather.features.weather.data.model.*
 
 @Database(
     entities = [CurrentWeatherEntity::class, HourlyWeatherEntity::class, DailyWeatherEntity::class],
-    version = 2,
+    version = 3,
     exportSchema = false
 )
 abstract class WeatherDatabase : RoomDatabase() {
@@ -26,10 +26,17 @@ abstract class WeatherDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_2_3 = object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                // Historical caches have no trustworthy request timestamp.
+                db.execSQL("ALTER TABLE current_weather ADD COLUMN checkedAtMillis INTEGER DEFAULT NULL")
+            }
+        }
+
         fun create(context: Context): WeatherDatabase = Room.databaseBuilder(
             context.applicationContext,
             WeatherDatabase::class.java,
             "weather.db"
-        ).addMigrations(MIGRATION_1_2).build()
+        ).addMigrations(MIGRATION_1_2, MIGRATION_2_3).build()
     }
 }
