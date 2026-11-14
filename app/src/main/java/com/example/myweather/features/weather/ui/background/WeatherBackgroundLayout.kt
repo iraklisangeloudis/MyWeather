@@ -1,4 +1,4 @@
-package com.example.myweather.features.weather.ui
+package com.example.myweather.features.weather.ui.background
 
 import android.animation.ValueAnimator
 import android.content.Context

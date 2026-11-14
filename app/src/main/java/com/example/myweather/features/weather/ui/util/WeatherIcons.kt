@@ -1,4 +1,4 @@
-package com.example.myweather.features.weather.ui
+package com.example.myweather.features.weather.ui.util
 
 import androidx.annotation.RawRes
 import com.airbnb.lottie.LottieAnimationView

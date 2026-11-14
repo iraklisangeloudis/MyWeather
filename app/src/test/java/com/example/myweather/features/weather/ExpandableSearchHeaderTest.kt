@@ -5,7 +5,7 @@ import android.app.Application
 import android.view.View
 import com.example.myweather.R
 import com.example.myweather.databinding.ActivityMainBinding
-import com.example.myweather.features.weather.ui.ExpandableSearchHeader
+import com.example.myweather.features.weather.ui.search.ExpandableSearchHeader
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith

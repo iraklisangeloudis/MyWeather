@@ -1,8 +1,8 @@
-package com.example.myweather.features.weather.ui
+package com.example.myweather.features.weather.ui.util
 
 import com.example.myweather.R
 
-object WeatherTheme {
+object WeatherConditionDescriptions {
     fun description(weatherCode: Int, isDay: Int): Int = when (weatherCode) {
         0 -> if (isDay == 1) R.string.condition_sunny else R.string.condition_clear
         1 -> R.string.condition_mostly_clear

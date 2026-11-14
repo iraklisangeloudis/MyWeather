@@ -28,7 +28,7 @@ import androidx.glance.unit.ColorProvider
 import com.example.myweather.MainActivity
 import com.example.myweather.R
 import com.example.myweather.features.weather.domain.model.WeatherForecastDetails
-import com.example.myweather.features.weather.ui.WeatherTheme
+import com.example.myweather.features.weather.ui.util.WeatherConditionDescriptions
 
 internal data class WidgetSnapshot(
     val weather: WeatherForecastDetails,
@@ -99,7 +99,7 @@ private fun CurrentSummary(context: Context, snapshot: WidgetSnapshot, tall: Boo
                 WeatherArtwork(snapshot.icon, 52)
             }
         }
-        Text(context.getString(WeatherTheme.description(weather.current.weatherCode, weather.current.isDay)),
+        Text(context.getString(WeatherConditionDescriptions.description(weather.current.weatherCode, weather.current.isDay)),
             style = TextStyle(color = ink, fontSize = 14.sp), maxLines = 2)
         Spacer(GlanceModifier.defaultWeight())
         LocationLabel(context, weather.locationName)
@@ -118,7 +118,7 @@ private fun CompactConditions(context: Context, snapshot: WidgetSnapshot, tall: 
             Temperature(context, weather.current.temperature, if (tall) 52 else 44, GlanceModifier.defaultWeight())
             WeatherArtwork(snapshot.icon, if (tall) 80 else 64)
         }
-        Text(context.getString(WeatherTheme.description(weather.current.weatherCode, weather.current.isDay)),
+        Text(context.getString(WeatherConditionDescriptions.description(weather.current.weatherCode, weather.current.isDay)),
             style = TextStyle(color = ink, fontSize = 14.sp), maxLines = 1)
         Spacer(GlanceModifier.height(4.dp))
         LocationLabel(context, weather.locationName)
@@ -154,7 +154,7 @@ private fun DailyOutlook(context: Context, snapshot: WidgetSnapshot, tall: Boole
                 val label = if (day.day == "Today") context.getString(R.string.widget_today) else day.day.take(3)
                 Text(label, GlanceModifier.defaultWeight(), style = TextStyle(color = muted, fontSize = 12.sp), maxLines = 1)
                 WeatherArtwork(snapshot.dailyIcons.getOrNull(index), 28,
-                    context.getString(WeatherTheme.description(day.weatherCode, 1)))
+                    context.getString(WeatherConditionDescriptions.description(day.weatherCode, 1)))
                 Spacer(GlanceModifier.width(6.dp))
                 Text(context.getString(R.string.temperature_value, day.maximum),
                     GlanceModifier.width(30.dp), style = TextStyle(color = ink, fontSize = 13.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.End), maxLines = 1)

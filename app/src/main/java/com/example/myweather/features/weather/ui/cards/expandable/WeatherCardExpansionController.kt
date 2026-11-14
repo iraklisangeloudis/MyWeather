@@ -1,4 +1,4 @@
-package com.example.myweather.features.weather.ui
+package com.example.myweather.features.weather.ui.cards.expandable
 
 import android.animation.ValueAnimator
 import android.content.Context
@@ -10,7 +10,7 @@ import androidx.core.view.children
 import androidx.core.widget.NestedScrollView
 import kotlin.math.max
 
-class WeatherScrollExpansion(private val scroll: NestedScrollView, private val content: LinearLayout, private val onPositionChanged: () -> Unit = {}) {
+class WeatherCardExpansionController(private val scroll: NestedScrollView, private val content: LinearLayout, private val onPositionChanged: () -> Unit = {}) {
     private val layoutListener = android.view.ViewTreeObserver.OnGlobalLayoutListener { update() }
     private var updating = false
 
@@ -26,7 +26,7 @@ class WeatherScrollExpansion(private val scroll: NestedScrollView, private val c
             val children = content.children.filter { it.visibility != View.GONE }.toList()
             val fullHeight = content.paddingTop + content.paddingBottom + children.sumOf { child ->
                 val margins = child.layoutParams as? ViewGroup.MarginLayoutParams
-                (if (child is ExpandableWeatherSection) child.expandedHeight else child.measuredHeight) + (margins?.topMargin ?: 0) + (margins?.bottomMargin ?: 0)
+                (if (child is ExpandableWeatherCard) child.expandedHeight else child.measuredHeight) + (margins?.topMargin ?: 0) + (margins?.bottomMargin ?: 0)
             }
             val staticLayout = !ValueAnimator.areAnimatorsEnabled() ||
                 (scroll.context.getSystemService(Context.ACCESSIBILITY_SERVICE) as AccessibilityManager).isTouchExplorationEnabled || fullHeight <= scroll.height
@@ -35,7 +35,7 @@ class WeatherScrollExpansion(private val scroll: NestedScrollView, private val c
             if (content.minimumHeight != minimum) content.minimumHeight = minimum
             var addedHeight = 0
             for (child in children) {
-                if (child !is ExpandableWeatherSection) continue
+                if (child !is ExpandableWeatherCard) continue
                 val compactTop = child.top - addedHeight
                 val start = max(16 * scroll.resources.displayMetrics.density, compactTop - scroll.height * .52f)
                 val distance = (scroll.height * .24f).coerceIn(96 * scroll.resources.displayMetrics.density, 180 * scroll.resources.displayMetrics.density)

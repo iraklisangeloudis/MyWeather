@@ -15,7 +15,7 @@ import androidx.glance.appwidget.SizeMode
 import androidx.glance.appwidget.provideContent
 import com.airbnb.lottie.LottieCompositionFactory
 import com.airbnb.lottie.LottieDrawable
-import com.example.myweather.features.weather.ui.WeatherIcons
+import com.example.myweather.features.weather.ui.util.WeatherIcons
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.catch

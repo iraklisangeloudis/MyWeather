@@ -1,4 +1,4 @@
-package com.example.myweather.features.weather.ui
+package com.example.myweather.features.weather.ui.search
 
 import android.animation.Animator
 import android.animation.AnimatorListenerAdapter

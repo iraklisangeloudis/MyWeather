@@ -229,3 +229,18 @@ class WeatherViewModel(
         data object Failed : WeatherUpdate
     }
 }
+
+data class WeatherViewState(
+    val weather: WeatherForecastDetails? = null,
+    val cityName: String = "",
+    val isRefreshing: Boolean = false,
+    val isLocating: Boolean = false,
+    val searchQuery: String = "",
+    val isSearching: Boolean = false,
+    val searchFailed: Boolean = false,
+    val suggestions: List<LocationSuggestion> = emptyList(),
+    val message: String? = null,
+    val isRestoringCache: Boolean = false
+) {
+    val isLoading: Boolean get() = isRestoringCache || isRefreshing || isLocating || isSearching
+}

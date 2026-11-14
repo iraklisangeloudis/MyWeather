@@ -3,7 +3,7 @@ package com.example.myweather.features.weather
 import android.app.Application
 import com.airbnb.lottie.LottieCompositionFactory
 import com.example.myweather.R
-import com.example.myweather.features.weather.ui.WeatherIcons
+import com.example.myweather.features.weather.ui.util.WeatherIcons
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -34,7 +34,7 @@ class WeatherIconsTest {
         assertNotEquals(WeatherIcons.resource(61, 1), WeatherIcons.resource(66, 1))
         assertNotEquals(WeatherIcons.resource(95, 1), WeatherIcons.resource(96, 1))
         assertEquals(R.raw.weather_not_available, WeatherIcons.resource(-1, 1))
-        assertEquals(R.string.condition_heavy_storm, com.example.myweather.features.weather.ui.WeatherTheme.description(97, 1))
+        assertEquals(R.string.condition_heavy_storm, com.example.myweather.features.weather.ui.util.WeatherConditionDescriptions.description(97, 1))
         val codes = listOf(0, 1, 2, 3, 45, 48, 51, 53, 55, 56, 57, 61, 63, 65, 66, 67, 71, 73, 75, 77, 80, 81, 82, 85, 86, 95, 96, 97, 99)
         codes.forEach { code ->
             assertNotEquals("day code $code", R.raw.weather_not_available, WeatherIcons.resource(code, 1))

@@ -1,4 +1,4 @@
-package com.example.myweather.features.weather.ui
+package com.example.myweather.features.weather.ui.util
 
 import android.content.Context
 import com.example.myweather.R

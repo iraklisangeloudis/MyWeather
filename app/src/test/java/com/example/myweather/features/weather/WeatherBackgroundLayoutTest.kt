@@ -7,7 +7,7 @@ import android.graphics.Canvas
 import android.view.View
 import android.os.Looper
 import androidx.core.graphics.ColorUtils
-import com.example.myweather.features.weather.ui.WeatherBackgroundLayout
+import com.example.myweather.features.weather.ui.background.WeatherBackgroundLayout
 import org.junit.Assert.*
 import org.junit.Test
 import org.junit.runner.RunWith

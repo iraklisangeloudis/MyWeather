@@ -1,7 +1,7 @@
 package com.example.myweather.features.weather
 
 import android.app.Application
-import com.example.myweather.features.weather.ui.WeatherCheckTimeFormatter
+import com.example.myweather.features.weather.ui.util.WeatherCheckTimeFormatter
 import com.example.myweather.features.weather.domain.GetWeatherCheckAgeUseCase
 import java.time.Clock
 import java.time.Instant

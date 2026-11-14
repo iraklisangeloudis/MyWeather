@@ -1,5 +1,6 @@
-package com.example.myweather.features.weather.ui
+package com.example.myweather.features.weather.ui.cards.hourlyforecast
 
+import com.example.myweather.features.weather.ui.util.WeatherIcons
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,7 +12,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.example.myweather.R
 import com.example.myweather.features.weather.domain.model.HourlyForecast
 
-class TemperatureAdapter : ListAdapter<HourlyForecast, TemperatureAdapter.ViewHolder>(DIFF) {
+class HourlyForecastAdapter : ListAdapter<HourlyForecast, HourlyForecastAdapter.ViewHolder>(DIFF) {
     companion object {
         private val DIFF = object : DiffUtil.ItemCallback<HourlyForecast>() {
             override fun areItemsTheSame(old: HourlyForecast, new: HourlyForecast) = old.time == new.time

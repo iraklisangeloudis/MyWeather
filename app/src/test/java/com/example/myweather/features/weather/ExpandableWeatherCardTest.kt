@@ -14,7 +14,7 @@ import org.robolectric.annotation.Config
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], application = Application::class)
-class ExpandableWeatherSectionTest {
+class ExpandableWeatherCardTest {
     @Test fun expansionReversesWithoutChangingTheMeasuredFullContentSize() {
         Robolectric.buildActivity(Activity::class.java).setup().use { controller ->
             val activity = controller.get()

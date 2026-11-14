@@ -9,7 +9,7 @@ import com.example.myweather.features.weather.domain.GetWeatherForecastUseCase
 import com.example.myweather.features.weather.domain.GetWeatherCheckAgeUseCase
 import com.example.myweather.features.weather.domain.RefreshSavedWeatherUseCase
 import com.example.myweather.features.weather.ui.WeatherViewModel
-import com.example.myweather.features.weather.ui.WeatherCheckTimeFormatter
+import com.example.myweather.features.weather.ui.util.WeatherCheckTimeFormatter
 import com.example.myweather.features.weather.widget.WeatherWidgetCacheNotifier
 import com.example.myweather.features.weather.widget.WeatherWidgetDataSource
 import com.example.myweather.network.ApiClient

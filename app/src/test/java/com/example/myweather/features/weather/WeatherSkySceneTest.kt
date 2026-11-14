@@ -1,7 +1,7 @@
 package com.example.myweather.features.weather
 
-import com.example.myweather.features.weather.ui.SkyCondition
-import com.example.myweather.features.weather.ui.WeatherSkyScene
+import com.example.myweather.features.weather.ui.background.SkyCondition
+import com.example.myweather.features.weather.ui.background.WeatherSkyScene
 import org.junit.Assert.*
 import org.junit.Test
 

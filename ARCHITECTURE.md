@@ -13,6 +13,8 @@ MyWeather uses Kotlin, Views/XML, Koin, Retrofit, Room, coroutines, and Flow. Je
 
 `WeatherUI` owns views, listeners, rendering, and lifecycle cleanup. Its Activity-scoped `WeatherViewModel` exposes one `StateFlow<WeatherViewState>` and coordinates weather/search requests, cancelling stale work. Koin modules wire dependencies; repositories handle API/cache work on IO, and forecast preparation runs on Default.
 
+The weather `ui` package keeps the screen and ViewModel together; `WeatherViewState` is declared at the bottom of the ViewModel file. Supporting code is grouped into `cards/hourlyforecast`, `cards/expandable`, `background`, and `search`; `util` contains icon, description, and check-time helpers. Pull-to-refresh uses the standard AndroidX `SwipeRefreshLayout` indicator.
+
 ## Data and screen behavior
 
 - Launch shows a loading indicator while reading cached weather, with no location or network request. If no forecast is cached, the empty-state content appears and stays visible during the first manual refresh. Resuming rereads the cache to reflect widget refreshes.

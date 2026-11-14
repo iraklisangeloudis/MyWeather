@@ -7,7 +7,7 @@ import com.example.myweather.R
 import com.example.myweather.databinding.ActivityMainBinding
 import com.example.myweather.features.location.domain.model.LocationSuggestion
 import com.example.myweather.features.weather.domain.GetWeatherForecastUseCase
-import com.example.myweather.features.weather.ui.TemperatureAdapter
+import com.example.myweather.features.weather.ui.cards.hourlyforecast.HourlyForecastAdapter
 import com.example.myweather.features.weather.ui.WeatherUI
 import com.example.myweather.features.weather.ui.WeatherViewState
 import kotlinx.coroutines.runBlocking
@@ -20,7 +20,7 @@ import org.koin.core.context.stopKoin
 import org.koin.dsl.module
 import java.time.Clock
 import com.example.myweather.features.weather.domain.GetWeatherCheckAgeUseCase
-import com.example.myweather.features.weather.ui.WeatherCheckTimeFormatter
+import com.example.myweather.features.weather.ui.util.WeatherCheckTimeFormatter
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
@@ -67,7 +67,7 @@ class WeatherUITest {
             activity.setTheme(R.style.Theme_MyWeather)
             val weatherUI = WeatherUI(activity) {}
             val binding = ActivityMainBinding.bind(weatherUI.createView())
-            binding.recyclerViewTemperatures.adapter = TemperatureAdapter()
+            binding.recyclerViewTemperatures.adapter = HourlyForecastAdapter()
             weatherUI.render(WeatherViewState())
             assertEquals(View.GONE, binding.recyclerViewTemperatures.visibility)
             val state = WeatherViewState(weather = GetWeatherForecastUseCase()(forecast()), cityName = "Athens")
@@ -96,7 +96,7 @@ class WeatherUITest {
             activity.setTheme(R.style.Theme_MyWeather)
             val weatherUI = WeatherUI(activity) {}
             val binding = ActivityMainBinding.bind(weatherUI.createView())
-            binding.recyclerViewTemperatures.adapter = TemperatureAdapter()
+            binding.recyclerViewTemperatures.adapter = HourlyForecastAdapter()
             val state = WeatherViewState(weather = GetWeatherForecastUseCase()(forecast()),
                 suggestions = listOf(LocationSuggestion(1.0, 2.0, "Athens")))
             weatherUI.render(state)

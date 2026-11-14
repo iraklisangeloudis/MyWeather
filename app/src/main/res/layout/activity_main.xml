@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
-<com.example.myweather.features.weather.ui.WeatherBackgroundLayout
+<com.example.myweather.features.weather.ui.background.WeatherBackgroundLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/mainLayout"
@@ -95,7 +95,7 @@
         android:layout_width="match_parent"
         android:layout_height="0dp"
         android:layout_weight="1">
-        <com.example.myweather.features.weather.ui.DotSwipeRefreshLayout
+        <androidx.swiperefreshlayout.widget.SwipeRefreshLayout
             android:id="@+id/swipeRefresh"
             android:layout_width="match_parent"
             android:layout_height="match_parent">
@@ -199,7 +199,7 @@
                             android:nestedScrollingEnabled="false"
                             android:clipToPadding="false" />
                     </LinearLayout>
-                    <com.example.myweather.features.weather.ui.ExpandableWeatherSection
+                    <com.example.myweather.features.weather.ui.cards.expandable.ExpandableWeatherCard
                         android:id="@+id/metricsSection"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -284,8 +284,8 @@
                                     android:layout_marginTop="4dp" />
                             </LinearLayout>
                         </LinearLayout>
-                    </com.example.myweather.features.weather.ui.ExpandableWeatherSection>
-                    <com.example.myweather.features.weather.ui.ExpandableWeatherSection
+                    </com.example.myweather.features.weather.ui.cards.expandable.ExpandableWeatherCard>
+                    <com.example.myweather.features.weather.ui.cards.expandable.ExpandableWeatherCard
                         android:id="@+id/sunSection"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -358,8 +358,8 @@
                                 android:layout_marginTop="12dp"
                                 android:tag="expanding_detail" />
                         </LinearLayout>
-                    </com.example.myweather.features.weather.ui.ExpandableWeatherSection>
-                    <com.example.myweather.features.weather.ui.ExpandableWeatherSection
+                    </com.example.myweather.features.weather.ui.cards.expandable.ExpandableWeatherCard>
+                    <com.example.myweather.features.weather.ui.cards.expandable.ExpandableWeatherCard
                         android:id="@+id/dailySection"
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
@@ -385,7 +385,7 @@
                             android:layout_width="match_parent"
                             android:layout_height="wrap_content"
                             android:orientation="vertical" />
-                    </com.example.myweather.features.weather.ui.ExpandableWeatherSection>
+                    </com.example.myweather.features.weather.ui.cards.expandable.ExpandableWeatherCard>
                     <TextView
                         android:id="@+id/textViewTime"
                         style="@style/WeatherLabel"
@@ -394,7 +394,7 @@
                         android:layout_marginTop="20dp" />
                 </LinearLayout>
             </androidx.core.widget.NestedScrollView>
-        </com.example.myweather.features.weather.ui.DotSwipeRefreshLayout>
+        </androidx.swiperefreshlayout.widget.SwipeRefreshLayout>
         <LinearLayout
             android:id="@+id/searchResultsPanel"
             android:layout_width="match_parent"
@@ -429,4 +429,4 @@
                 android:visibility="gone" />
         </LinearLayout>
     </FrameLayout>
-</com.example.myweather.features.weather.ui.WeatherBackgroundLayout>
+</com.example.myweather.features.weather.ui.background.WeatherBackgroundLayout>

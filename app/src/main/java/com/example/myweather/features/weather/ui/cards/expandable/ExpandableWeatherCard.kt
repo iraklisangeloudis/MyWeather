@@ -1,4 +1,4 @@
-package com.example.myweather.features.weather.ui
+package com.example.myweather.features.weather.ui.cards.expandable
 
 import android.content.Context
 import android.graphics.drawable.GradientDrawable
@@ -14,7 +14,7 @@ import com.example.myweather.R
 import kotlin.math.roundToInt
 
 /** Measures the full content independently of progress, so expansion never moves its own target. */
-class ExpandableWeatherSection @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : FrameLayout(context, attrs) {
+class ExpandableWeatherCard @JvmOverloads constructor(context: Context, attrs: AttributeSet? = null) : FrameLayout(context, attrs) {
     private val inset = dp(16)
     private val gap = dp(12)
     val compactHeight: Int
@@ -27,10 +27,10 @@ class ExpandableWeatherSection @JvmOverloads constructor(context: Context, attrs
         private set
 
     init {
-        val attributes = context.obtainStyledAttributes(attrs, R.styleable.ExpandableWeatherSection)
-        compactHeight = attributes.getDimensionPixelSize(R.styleable.ExpandableWeatherSection_compactHeight, dp(64))
-        compactOffset = attributes.getDimensionPixelSize(R.styleable.ExpandableWeatherSection_compactContentOffset, 0)
-        summary = attributes.getBoolean(R.styleable.ExpandableWeatherSection_summaryWhenCompact, false)
+        val attributes = context.obtainStyledAttributes(attrs, R.styleable.ExpandableWeatherCard)
+        compactHeight = attributes.getDimensionPixelSize(R.styleable.ExpandableWeatherCard_compactHeight, dp(64))
+        compactOffset = attributes.getDimensionPixelSize(R.styleable.ExpandableWeatherCard_compactContentOffset, 0)
+        summary = attributes.getBoolean(R.styleable.ExpandableWeatherCard_summaryWhenCompact, false)
         attributes.recycle()
         background = surface
         clipChildren = true

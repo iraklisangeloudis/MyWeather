@@ -1,5 +1,12 @@
 package com.example.myweather.features.weather.ui
 
+import com.example.myweather.features.weather.ui.util.WeatherCheckTimeFormatter
+import com.example.myweather.features.weather.ui.util.WeatherIcons
+import com.example.myweather.features.weather.ui.util.WeatherConditionDescriptions
+import com.example.myweather.features.weather.ui.cards.hourlyforecast.HourlyForecastAdapter
+import com.example.myweather.features.weather.ui.cards.expandable.WeatherCardExpansionController
+import com.example.myweather.features.weather.ui.search.ExpandableSearchHeader
+import com.example.myweather.features.weather.ui.search.LocationSuggestionAdapter
 import androidx.appcompat.app.AlertDialog
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import android.animation.ValueAnimator
@@ -61,7 +68,7 @@ class WeatherUI(
 
     private val heroBounds = Rect()
     private val cardBounds = Rect()
-    private var scrollExpansion: WeatherScrollExpansion? = null
+    private var scrollExpansion: WeatherCardExpansionController? = null
     private var refreshing = false
     private var lastBackPress = 0L
     private var fullLocationName = ""
@@ -117,8 +124,8 @@ class WeatherUI(
         binding.imageViewWeather.repeatCount = ValueAnimator.INFINITE
         binding.imageViewWeather.speed = .75f
         binding.recyclerViewTemperatures.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
-        binding.recyclerViewTemperatures.adapter = TemperatureAdapter()
-        scrollExpansion = WeatherScrollExpansion(binding.weatherScroll, binding.weatherContent, ::updateWeatherEffects)
+        binding.recyclerViewTemperatures.adapter = HourlyForecastAdapter()
+        scrollExpansion = WeatherCardExpansionController(binding.weatherScroll, binding.weatherContent, ::updateWeatherEffects)
         binding.mainLayout.onSkyColorChanged = { activity.window.statusBarColor = it }
     }
 
@@ -389,14 +396,14 @@ class WeatherUI(
         renderSunTimes(weather)
         renderDailyForecast(weather.daily)
         renderCheckTime(weather.checkedAtMillis)
-        (binding.recyclerViewTemperatures.adapter as TemperatureAdapter).submitList(weather.hourly)
+        (binding.recyclerViewTemperatures.adapter as HourlyForecastAdapter).submitList(weather.hourly)
     }
 
     private fun renderCurrentConditions(weather: WeatherForecastDetails) {
         val current = weather.current
         binding.textViewTemperature.text = context.getString(R.string.temperature_value, current.temperature)
         binding.textViewTemperature.contentDescription = context.getString(R.string.temperature_accessible, current.temperature)
-        binding.textViewCondition.setText(WeatherTheme.description(current.weatherCode, current.isDay))
+        binding.textViewCondition.setText(WeatherConditionDescriptions.description(current.weatherCode, current.isDay))
         weather.daily.firstOrNull()?.let { binding.textViewHighLow.text = context.getString(R.string.high_low, it.maximum, it.minimum) }
         WeatherIcons.bind(binding.imageViewWeather, current.weatherCode, current.isDay)
     }

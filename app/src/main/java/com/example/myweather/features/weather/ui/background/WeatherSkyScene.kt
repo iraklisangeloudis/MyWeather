@@ -1,4 +1,4 @@
-package com.example.myweather.features.weather.ui
+package com.example.myweather.features.weather.ui.background
 
 enum class SkyCondition { STILL, CLEAR, CLOUDY, FOG, RAIN, SNOW, STORM }
 
