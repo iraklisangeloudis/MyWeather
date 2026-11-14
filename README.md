@@ -59,11 +59,18 @@ MyWeather is an intuitive weather application for Android, built using Kotlin an
 4. **Use the GPS feature** to get the weather for your current location.
 
 
+## Demo
+
+[Watch the MyWeather demo](docs/myweather-demo.mp4) (MP4, 15 MB).
+
 ## Screenshots
 
-<p>
-<img src="Screenshot_20240721_194528_MyWeather.jpg" alt="screenshot" width="200"/>
-<img src="Screenshot_20240721_211509_MyWeather.jpg" alt="screenshot" width="200"/>
-<img src="Screenshot_20240721_180010_MyWeather.jpg" alt="screenshot" width="200"/>
-<img src="Screenshot_20240721_180210_MyWeather.jpg" alt="screenshot" width="200"/>
-</p>
+| Daytime weather | Nighttime weather | Location search |
+| :---: | :---: | :---: |
+| <img src="docs/screenshots/weather-day.jpg" alt="Daytime weather with current conditions and hourly forecast" width="240" /> | <img src="docs/screenshots/weather-night.jpg" alt="Nighttime weather with current conditions and hourly forecast" width="240" /> | <img src="docs/screenshots/location-search.jpg" alt="City search with location suggestions" width="240" /> |
+
+### Home-screen widgets
+
+| Forecast widget | Compact widget |
+| :---: | :---: |
+| <img src="docs/screenshots/widget-forecast.jpg" alt="Home screen showing the weather widget with a daily forecast" width="280" /> | <img src="docs/screenshots/widget-compact.jpg" alt="Home screen showing the compact current-weather widget" width="280" /> |
