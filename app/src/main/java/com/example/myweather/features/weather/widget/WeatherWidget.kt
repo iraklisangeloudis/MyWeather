@@ -1,5 +1,6 @@
 package com.example.myweather.features.weather.widget
 
+import android.annotation.SuppressLint
 import android.content.Context
 import android.graphics.Bitmap
 import android.graphics.Canvas
@@ -74,6 +75,7 @@ class WeatherWidget : GlanceAppWidget(), KoinComponent {
 
 private data class WidgetSnapshot(val weather: WeatherForecastDetails, val icon: Bitmap?)
 
+@SuppressLint("RestrictedApi")
 @Composable
 private fun WidgetContent(context: Context, snapshot: WidgetSnapshot?, status: String) {
     val weather = snapshot?.weather
