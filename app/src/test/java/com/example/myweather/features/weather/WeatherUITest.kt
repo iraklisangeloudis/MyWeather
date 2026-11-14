@@ -37,6 +37,29 @@ class WeatherUITest {
 
     @After fun stopDependencies() = stopKoin()
 
+    @Test fun emptyStateWaitsForCacheCheckThenStaysVisibleDuringFirstRefresh() {
+        Robolectric.buildActivity(Activity::class.java).setup().use { controller ->
+            val activity = controller.get()
+            activity.setTheme(R.style.Theme_MyWeather)
+            val ui = WeatherUI(activity) {}
+            val binding = ActivityMainBinding.bind(ui.createView())
+            ui.render(WeatherViewState(isRestoringCache = true))
+            assertEquals(View.GONE, binding.emptyState.visibility)
+            assertEquals(View.GONE, binding.weatherHero.visibility)
+            assertTrue(binding.swipeRefresh.isRefreshing)
+            ui.render(WeatherViewState(isRefreshing = true))
+            assertEquals(View.VISIBLE, binding.emptyState.visibility)
+            assertTrue(binding.swipeRefresh.isRefreshing)
+            ui.render(WeatherViewState(isLocating = true))
+            assertEquals(View.VISIBLE, binding.emptyState.visibility)
+            assertTrue(binding.swipeRefresh.isRefreshing)
+            ui.render(WeatherViewState())
+            assertEquals(View.VISIBLE, binding.emptyState.visibility)
+            assertFalse(binding.swipeRefresh.isRefreshing)
+            ui.onDestroy()
+        }
+    }
+
     @Test
     fun refreshingKeepsWeatherVisibleAndUsesCorrectTemperatureUnit() = runBlocking {
         Robolectric.buildActivity(Activity::class.java).setup().use { controller ->

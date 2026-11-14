@@ -12,7 +12,8 @@ data class WeatherViewState(
     val isSearching: Boolean = false,
     val searchFailed: Boolean = false,
     val suggestions: List<LocationSuggestion> = emptyList(),
-    val message: String? = null
+    val message: String? = null,
+    val isRestoringCache: Boolean = false
 ) {
-    val isLoading: Boolean get() = isRefreshing || isLocating || isSearching
+    val isLoading: Boolean get() = isRestoringCache || isRefreshing || isLocating || isSearching
 }

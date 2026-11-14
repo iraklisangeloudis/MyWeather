@@ -45,6 +45,89 @@ class WeatherViewModelTest {
         override suspend fun refreshWeather(latitude: Double, longitude: Double) = forecast(latitude)
     }
 
+    private val noLocations = object : LocationRepository {
+        override suspend fun fetchLocationSuggestions(query: String) = emptyList<LocationSuggestion>()
+    }
+
+    @Test fun startupRemainsLoadingUntilCachedWeatherHasBeenRead() = runTest(dispatcher) {
+        val cache = CompletableDeferred<WeatherForecast?>()
+        var fetches = 0
+        val repository = object : WeatherRepository {
+            override suspend fun getCachedWeather() = cache.await()
+            override suspend fun refreshWeather(latitude: Double, longitude: Double): WeatherForecast {
+                fetches++
+                return forecast()
+            }
+        }
+        val vm = model(repository, noLocations)
+        assertTrue(vm.viewState.value.isRestoringCache)
+        runCurrent()
+        assertTrue(vm.viewState.value.isLoading)
+        assertNull(vm.viewState.value.weather)
+        cache.complete(forecast().copy(locationName = "Cached city"))
+        advanceUntilIdle()
+        assertFalse(vm.viewState.value.isRestoringCache)
+        assertEquals("Cached city", vm.viewState.value.cityName)
+        assertNotNull(vm.viewState.value.weather)
+        assertEquals(0, fetches)
+    }
+
+    @Test fun missingOrFailedCacheFinishesStartupLoading() = runTest(dispatcher) {
+        for (fail in listOf(false, true)) {
+            val repository = object : WeatherRepository {
+                override suspend fun getCachedWeather(): WeatherForecast? {
+                    delay(100)
+                    if (fail) throw IOException("cache unavailable")
+                    return null
+                }
+                override suspend fun refreshWeather(latitude: Double, longitude: Double) = forecast()
+            }
+            val vm = model(repository, noLocations)
+            assertTrue(vm.viewState.value.isRestoringCache)
+            advanceUntilIdle()
+            assertFalse(vm.viewState.value.isLoading)
+            assertNull(vm.viewState.value.weather)
+        }
+    }
+
+    @Test fun newWeatherWaitsForItsLocationNameWithoutReplacingThePreviousForecast() = runTest(dispatcher) {
+        val name = CompletableDeferred<String?>()
+        val repository = object : WeatherRepository {
+            override suspend fun getCachedWeather() = forecast().copy(locationName = "Old city")
+            override suspend fun refreshWeather(latitude: Double, longitude: Double) = forecast(latitude)
+        }
+        val names = object : CityNameRepository {
+            override suspend fun fetchCityName(latitude: Double, longitude: Double) = name.await()
+        }
+        val vm = model(repository, noLocations, names)
+        advanceUntilIdle()
+        vm.selectLocation(30.0, 1.0)
+        runCurrent()
+        assertEquals("Old city", vm.viewState.value.cityName)
+        assertEquals(20.0, vm.viewState.value.weather!!.current.temperature, 0.0)
+        assertTrue(vm.viewState.value.isRefreshing)
+        name.complete("New city")
+        advanceUntilIdle()
+        assertEquals("New city", vm.viewState.value.cityName)
+        assertEquals(30.0, vm.viewState.value.weather!!.current.temperature, 0.0)
+        assertFalse(vm.viewState.value.isRefreshing)
+    }
+
+    @Test fun failedLocationNameStillDisplaysNewWeatherAndStopsLoading() = runTest(dispatcher) {
+        val names = object : CityNameRepository {
+            override suspend fun fetchCityName(latitude: Double, longitude: Double): String? {
+                throw IOException("name unavailable")
+            }
+        }
+        val vm = model(weather, noLocations, names)
+        advanceUntilIdle()
+        vm.selectLocation(30.0, 1.0)
+        advanceUntilIdle()
+        assertEquals(30.0, vm.viewState.value.weather!!.current.temperature, 0.0)
+        assertEquals("", vm.viewState.value.cityName)
+        assertFalse(vm.viewState.value.isLoading)
+    }
+
     @Test fun resumingReadsTheLatestCachedCheckWithoutFetchingWeather() = runTest(dispatcher) {
         var cached = forecast().copy(checkedAtMillis = 1_800_000_000_000L)
         var fetches = 0

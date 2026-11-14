@@ -15,9 +15,9 @@ MyWeather uses Kotlin, Views/XML, Koin, Retrofit, Room, coroutines, and Flow. Je
 
 ## Data and screen behavior
 
-- Launch reads cached weather without requesting location or fetching weather. Resuming rereads the cache to reflect widget refreshes.
+- Launch shows a loading indicator while reading cached weather, with no location or network request. If no forecast is cached, the empty-state content appears and stays visible during the first manual refresh. Resuming rereads the cache to reflect widget refreshes.
 - Pull-to-refresh uses device location; selecting a search result fetches that city. Approximate permission uses network location; precise permission permits GPS. Lookup is cancellable with a 15-second timeout.
-- Failed refreshes retain the displayed forecast. Location-label updates apply only when coordinates still match the saved forecast.
+- New weather and its resolved location label appear together; the previous forecast stays visible while loading. Failed refreshes retain the displayed forecast. Location-label updates apply only when coordinates still match the saved forecast.
 - `WeatherCacheDao` reads/replaces the complete current/hourly/daily snapshot in `@Transaction` methods. Repositories receive the DAO through DI. Schema migrations preserve existing data.
 - Successful fetches persist `checkedAtMillis` atomically with the snapshot. Cache reads and failures never advance it; legacy caches keep an unknown check time until refreshed.
 - `GetWeatherCheckAgeUseCase` uses an injected clock; `WeatherCheckTimeFormatter` supplies localized relative labels. Only the app displays check age, recalculated once a minute while visible.

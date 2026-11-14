@@ -41,7 +41,7 @@ class WeatherViewModel(
     private val locationRepository: LocationRepository,
     private val getWeatherForecast: GetWeatherForecastUseCase
 ) : ViewModel() {
-    private val _viewState = MutableStateFlow(WeatherViewState())
+    private val _viewState = MutableStateFlow(WeatherViewState(isRestoringCache = true))
     val viewState: StateFlow<WeatherViewState> = _viewState.asStateFlow()
 
     private val searchQuery = MutableStateFlow("")
@@ -104,7 +104,10 @@ class WeatherViewModel(
     private fun observeWeatherSelections() {
         selections.flatMapLatest(::weatherFor)
             .buffer(0)
-            .onStart { loadCachedWeather()?.let { emit(it) } }
+            .onStart {
+                loadCachedWeather()?.let { emit(it) }
+                _viewState.update { it.copy(isRestoringCache = false) }
+            }
             .onEach(::updateWeatherState)
             .launchIn(viewModelScope)
     }
@@ -126,7 +129,8 @@ class WeatherViewModel(
         return combine(forecastFor(coordinates), cityNameFor(coordinates)) { forecast, name ->
             when (forecast) {
                 ForecastUpdate.Loading -> WeatherUpdate.Loading
-                is ForecastUpdate.Content -> WeatherUpdate.Content(forecast.weather, name)
+                is ForecastUpdate.Content -> if (name == null) WeatherUpdate.Loading
+                    else WeatherUpdate.Content(forecast.weather, name)
                 ForecastUpdate.Failed -> WeatherUpdate.Failed
             }
         }.distinctUntilChanged().onEach { update ->
@@ -143,8 +147,8 @@ class WeatherViewModel(
         emit(ForecastUpdate.Failed)
     }
 
-    private fun cityNameFor(coordinates: Coordinates): Flow<String> = flow {
-        emit("")
+    private fun cityNameFor(coordinates: Coordinates): Flow<String?> = flow {
+        emit(null)
         emit(cityNameRepository.fetchCityName(coordinates.latitude, coordinates.longitude).orEmpty())
     }.catch { error ->
         Log.w("WeatherViewModel", requestFailureMessage(error))

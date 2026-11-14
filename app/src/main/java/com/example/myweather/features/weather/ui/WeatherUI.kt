@@ -108,6 +108,7 @@ class WeatherUI(
         setupRefresh()
         setupSearch()
         setupBackNavigation()
+        render(viewModel.viewState.value)
         observeViewState()
         updateSystemBars(activity)
     }
@@ -301,20 +302,21 @@ class WeatherUI(
     fun render(state: WeatherViewState) {
         (context as? AppCompatActivity)?.let { applyNightMode(it, state.weather) }
         binding.mainLayout.setWeather(state.weather?.current?.weatherCode, state.weather?.current?.isDay)
-        renderWeatherVisibility(state.weather != null)
+        val loadingWeather = state.isRestoringCache || state.isLocating || state.isRefreshing
+        renderWeatherVisibility(state.weather != null, state.isRestoringCache)
         if (renderedWeather != state.weather) {
             state.weather?.let(::renderWeather)
             renderedWeather = state.weather
         }
         renderLocationHeader(state.cityName, state.weather != null)
-        renderRefresh(state.isLocating || state.isRefreshing)
+        renderRefresh(loadingWeather)
         binding.swipeRefresh.isEnabled = state.searchQuery.isBlank()
         renderSearch(state)
         updateWeatherEffects()
     }
 
-    private fun renderWeatherVisibility(hasWeather: Boolean) {
-        binding.emptyState.visibility = if (hasWeather) View.GONE else View.VISIBLE
+    private fun renderWeatherVisibility(hasWeather: Boolean, restoringCache: Boolean) {
+        binding.emptyState.isVisible = !hasWeather && !restoringCache
         listOf(binding.weatherHero, binding.hourlyCard, binding.metricsSection, binding.sunSection, binding.dailySection).forEach {
             it.visibility = if (hasWeather) View.VISIBLE else View.GONE
         }
