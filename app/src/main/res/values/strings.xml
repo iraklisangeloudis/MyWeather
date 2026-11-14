@@ -61,5 +61,4 @@
     <string name="widget_next_days">NEXT DAYS</string>
     <string name="widget_today">Today</string>
     <string name="widget_high_low">H %1$.0f° · L %2$.0f°</string>
-    <string name="widget_as_of">Updated %1$s</string>
 </resources>

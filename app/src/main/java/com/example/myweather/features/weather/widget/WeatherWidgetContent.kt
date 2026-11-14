@@ -200,7 +200,7 @@ private fun WidgetFooter(context: Context, weather: WeatherForecastDetails, stat
             "loading" -> context.getString(R.string.refreshing_weather)
             "failed" -> context.getString(R.string.widget_refresh_failed)
             "location" -> context.getString(R.string.widget_no_coordinates)
-            else -> context.getString(R.string.widget_as_of, weather.weatherAsOf)
+            else -> context.getString(R.string.weather_as_of, weather.weatherAsOf)
         }
         Text(label, GlanceModifier.defaultWeight(), style = TextStyle(color = muted, fontSize = 10.sp), maxLines = 2)
         if (status != "loading") {
