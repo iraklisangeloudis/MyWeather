@@ -52,10 +52,14 @@
     <string name="condition_overcast">Overcast</string>
     <string name="condition_heavy_storm">Heavy thunderstorm</string>
     <string name="widget_name">MyWeather forecast</string>
-    <string name="widget_description">Weather for your last saved location, with an hourly outlook.</string>
+    <string name="widget_description">Current conditions and a daily outlook for your saved location.</string>
     <string name="widget_empty">Open MyWeather and choose a location to get started.</string>
     <string name="widget_refresh">Refresh</string>
     <string name="widget_refresh_failed">Refresh failed · showing saved weather</string>
     <string name="widget_no_coordinates">Open MyWeather to choose a location</string>
     <string name="widget_hour_temperature">%1$s · %2$.0f°</string>
+    <string name="widget_next_days">NEXT DAYS</string>
+    <string name="widget_today">Today</string>
+    <string name="widget_high_low">H %1$.0f° · L %2$.0f°</string>
+    <string name="widget_as_of">Updated %1$s</string>
 </resources>

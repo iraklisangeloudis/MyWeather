@@ -28,7 +28,7 @@ Room schema version 2 preserves existing data through migration. Cached location
 
 ## Home-screen widget
 
-`features/weather/widget/` uses Jetpack Glance alongside the Views/XML screen. All widget instances follow the app's single saved location. The responsive layout shows current conditions and high/low, adding three hourly readings when widened. Meteocons are rendered to small static bitmaps; widgets do not animate.
+`features/weather/widget/` uses Jetpack Glance alongside the Views/XML screen. All widget instances follow the app's single saved location. Compact layouts show current conditions; taller cards add high/low and hourly readings. Wide layouts place current conditions beside three or four daily forecast rows. Day, cloudy, and night gradients follow the displayed forecast. `WeatherWidgetContent` owns presentation while `WeatherWidget` prepares cached snapshots and small static Meteocons bitmaps; widgets do not animate.
 
 The widget reads Room through the existing repository and forecast use case. Room Flow keeps active Glance sessions current. The repository notifies an injected `WeatherCacheNotifier` after successful cache writes. Koin binds this interface to `WeatherWidgetCacheNotifier`, which schedules rendering; widget scheduling failures do not fail weather saves. The module only wires dependencies. Tapping the widget opens MainActivity. Refresh actions use WorkManager and `RefreshSavedWeatherUseCase` with saved coordinates, preserving the location label. No background location permission or device-location lookup is used.
 
