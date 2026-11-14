@@ -24,11 +24,15 @@ Scroll position expands the details, sunrise/sunset, and daily cards. Reduced-mo
 
 The pull indicator uses animated dots, with explicit drawable invalidation and lifecycle cleanup. Search expands from its icon inside the header, preserving header height; closing reverses the transition. Reduced-motion mode switches immediately. Results use city/region rows and text for loading, empty, and failure states.
 
-Room schema version 2 preserves existing data through migration. Cached location labels are updated only when their coordinates match the stored forecast.
+Room schema version 3 preserves existing data through migrations from versions 1 and 2. Cached location labels are updated only when their coordinates match the stored forecast. Successful weather fetches store `checkedAtMillis` with the complete snapshot; cache reads, location labels, and failed fetches do not advance it. Older caches retain a null check time until refreshed.
+
+`GetWeatherCheckAgeUseCase` calculates elapsed time from the saved successful-check timestamp using an injected clock. `WeatherCheckTimeFormatter` supplies localized relative labels. The screen recalculates its label once a minute while started and rereads the cache when resumed so background widget refreshes are reflected without another API request.
 
 `WeatherCacheDao` groups the three weather tables. Its `@Transaction` methods read and replace complete forecast snapshots atomically. Koin provides the DAO to the repository and widget data source; the repository does not access `WeatherDatabase` directly.
 
 ## Home-screen widget
+
+Check-age labels appear only inside the app. The widget footer keeps its refresh control and loading/failure status without a check timestamp or periodic label-only work.
 
 `features/weather/widget/` uses Jetpack Glance alongside the Views/XML screen. All widget instances follow the app's single saved location. Compact layouts show current conditions; taller cards add high/low and hourly readings. Wide layouts place current conditions beside three or four daily forecast rows. Day, cloudy, and night gradients follow the displayed forecast. `WeatherWidgetContent` owns presentation while `WeatherWidget` prepares cached snapshots and small static Meteocons bitmaps; weather artwork does not animate. The refresh control keeps a fixed size and shows a native progress spinner while refreshing.
 
@@ -38,7 +42,7 @@ While widgets are installed, unique hourly work refreshes on an available networ
 
 ## Verification
 
-Use JDK 17; Gradle's daemon JVM configuration pins it. Kotlin and its Compose compiler Gradle plugin are both pinned to 2.3.21. Room 2.8.4 processes Kotlin metadata through kapt; the schema remains version 2.
+Use JDK 17; Gradle's daemon JVM configuration pins it. Kotlin and its Compose compiler Gradle plugin are both pinned to 2.3.21. Room 2.8.4 processes Kotlin metadata through kapt.
 
 ```shell
 ./gradlew :app:testDebugUnitTest :app:assembleDebug :app:lintDebug

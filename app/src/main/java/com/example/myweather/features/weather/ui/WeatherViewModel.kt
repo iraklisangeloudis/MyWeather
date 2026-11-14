@@ -15,6 +15,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -85,6 +86,19 @@ class WeatherViewModel(
 
     fun messageShown(message: String) {
         _viewState.update { if (it.message == message) it.copy(message = null) else it }
+    }
+
+    fun reloadCachedWeather() {
+        val previous = _viewState.value
+        if (previous.isLoading) return
+        viewModelScope.launch {
+            val cached = loadCachedWeather() ?: return@launch
+            _viewState.update { state ->
+                // A delayed cache read must not overwrite a newer selection or refresh.
+                if (state.isLoading || state.weather != previous.weather || state.cityName != previous.cityName) state
+                else state.copy(weather = cached.weather, cityName = cached.cityName)
+            }
+        }
     }
 
     private fun observeWeatherSelections() {

@@ -45,6 +45,28 @@ class WeatherViewModelTest {
         override suspend fun refreshWeather(latitude: Double, longitude: Double) = forecast(latitude)
     }
 
+    @Test fun resumingReadsTheLatestCachedCheckWithoutFetchingWeather() = runTest(dispatcher) {
+        var cached = forecast().copy(checkedAtMillis = 1_800_000_000_000L)
+        var fetches = 0
+        val repository = object : WeatherRepository {
+            override suspend fun getCachedWeather() = cached
+            override suspend fun refreshWeather(latitude: Double, longitude: Double): WeatherForecast {
+                fetches++
+                return cached
+            }
+        }
+        val locations = object : LocationRepository {
+            override suspend fun fetchLocationSuggestions(query: String) = emptyList<LocationSuggestion>()
+        }
+        val vm = model(repository, locations)
+        advanceUntilIdle()
+        cached = cached.copy(checkedAtMillis = cached.checkedAtMillis!! + 7 * 60 * 60_000L)
+        vm.reloadCachedWeather()
+        advanceUntilIdle()
+        assertEquals(cached.checkedAtMillis, vm.viewState.value.weather!!.checkedAtMillis)
+        assertEquals(0, fetches)
+    }
+
     @Test
     fun typingCancelsDebounceAndAnAlreadyRunningSearch() = runTest(dispatcher) {
         val started = mutableListOf<String>()

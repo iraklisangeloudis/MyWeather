@@ -21,7 +21,20 @@
     <string name="humidity_value">%1$d%%</string>
     <string name="wind_value">%1$.1f km/h</string>
     <string name="high_low">High %1$.0f° · Low %2$.0f°</string>
-    <string name="weather_as_of">Weather as of %1$s</string>
+    <string name="weather_check_unknown">Saved weather · refresh to check</string>
+    <string name="weather_checked_just_now">Checked just now</string>
+    <plurals name="weather_checked_minutes">
+        <item quantity="one">Checked %1$d minute ago</item>
+        <item quantity="other">Checked %1$d minutes ago</item>
+    </plurals>
+    <plurals name="weather_checked_hours">
+        <item quantity="one">Checked %1$d hour ago</item>
+        <item quantity="other">Checked %1$d hours ago</item>
+    </plurals>
+    <plurals name="weather_checked_days">
+        <item quantity="one">Checked %1$d day ago</item>
+        <item quantity="other">Checked %1$d days ago</item>
+    </plurals>
     <string name="daylight_duration">%1$d h %2$d min of daylight</string>
     <string name="forecast_days">%1$d days</string>
     <string name="saved_location">Saved forecast</string>

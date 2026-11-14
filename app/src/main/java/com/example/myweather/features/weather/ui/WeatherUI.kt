@@ -44,6 +44,7 @@ import kotlinx.coroutines.launch
 import org.koin.androidx.viewmodel.ext.android.getViewModel
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import kotlin.time.Duration.Companion.minutes
 
 class WeatherUI(
     private val context: Context,
@@ -53,6 +54,7 @@ class WeatherUI(
     // The screen accesses the ViewModel; Android retains it in the host's ViewModelStore.
     private val viewModel: WeatherViewModel by lazy { activity.getViewModel<WeatherViewModel>() }
     private val getCurrentLocation: GetCurrentLocationUseCase by inject()
+    private val checkTimeFormatter: WeatherCheckTimeFormatter by inject()
     private val locationRequests = Channel<LocationRequest>(Channel.CONFLATED)
     private lateinit var binding: ActivityMainBinding
     private lateinit var searchHeader: ExpandableSearchHeader
@@ -66,6 +68,13 @@ class WeatherUI(
     private var locationDialog: AlertDialog? = null
     private var renderedWeather: WeatherForecastDetails? = null
     private var renderedSuggestions: List<LocationSuggestion> = emptyList()
+    private var hasStarted = false
+    private val checkTimeUpdater = object : Runnable {
+        override fun run() {
+            renderedWeather?.let { renderCheckTime(it.checkedAtMillis) }
+            binding.textViewTime.postDelayed(this, 1.minutes.inWholeMilliseconds)
+        }
+    }
 
     fun createView(): View {
         if (context is AppCompatActivity) applyNightMode(context, viewModel.viewState.value.weather)
@@ -166,12 +175,16 @@ class WeatherUI(
     private fun observeViewState() {
         activity.lifecycleScope.launch {
             activity.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                if (hasStarted) viewModel.reloadCachedWeather()
+                hasStarted = true
+                binding.textViewTime.post(checkTimeUpdater)
                 try {
                     viewModel.viewState.collect { state ->
                         render(state)
                         state.message?.let(::showMessage)
                     }
                 } finally {
+                    stopCheckTimeUpdates()
                     pauseWeatherEffects()
                 }
             }
@@ -181,6 +194,14 @@ class WeatherUI(
     private fun showMessage(message: String) {
         Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
         viewModel.messageShown(message)
+    }
+
+    private fun stopCheckTimeUpdates() {
+        binding.textViewTime.removeCallbacks(checkTimeUpdater)
+    }
+
+    private fun renderCheckTime(checkedAtMillis: Long?) {
+        binding.textViewTime.text = checkTimeFormatter.format(context, checkedAtMillis)
     }
 
     private fun pauseWeatherEffects() {
@@ -256,6 +277,7 @@ class WeatherUI(
     }
 
     fun onDestroyView() {
+        stopCheckTimeUpdates()
         locationRequests.close()
         binding.imageViewWeather.cancelAnimation()
         binding.mainLayout.dispose()
@@ -364,7 +386,7 @@ class WeatherUI(
         renderMetrics(weather.current)
         renderSunTimes(weather)
         renderDailyForecast(weather.daily)
-        binding.textViewTime.text = context.getString(R.string.weather_as_of, weather.weatherAsOf)
+        renderCheckTime(weather.checkedAtMillis)
         (binding.recyclerViewTemperatures.adapter as TemperatureAdapter).submitList(weather.hourly)
     }
 

@@ -9,6 +9,8 @@ import com.example.myweather.features.location.domain.GetCurrentLocationUseCase
 import com.example.myweather.features.weather.data.WeatherRepository
 import com.example.myweather.features.weather.data.WeatherCacheNotifier
 import com.example.myweather.features.weather.domain.GetWeatherForecastUseCase
+import com.example.myweather.features.weather.domain.GetWeatherCheckAgeUseCase
+import com.example.myweather.features.weather.ui.WeatherCheckTimeFormatter
 import com.example.myweather.features.weather.domain.RefreshSavedWeatherUseCase
 import com.example.myweather.features.weather.widget.WeatherWidgetDataSource
 import com.example.myweather.features.weather.ui.WeatherViewModel
@@ -45,6 +47,8 @@ class AppModulesTest {
             assertNotNull(koin.get<CityNameRepository>())
             assertNotNull(koin.get<GetCurrentLocationUseCase>())
             assertNotNull(koin.get<GetWeatherForecastUseCase>())
+            assertNotNull(koin.get<GetWeatherCheckAgeUseCase>())
+            assertNotNull(koin.get<WeatherCheckTimeFormatter>())
             assertNotNull(koin.get<RefreshSavedWeatherUseCase>())
             assertNotNull(koin.get<WeatherWidgetDataSource>())
             store.put("weather", koin.get<WeatherViewModel>())

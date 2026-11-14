@@ -13,6 +13,14 @@ import com.example.myweather.features.weather.ui.WeatherViewState
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
 import org.junit.Test
+import org.junit.Before
+import org.junit.After
+import org.koin.core.context.startKoin
+import org.koin.core.context.stopKoin
+import org.koin.dsl.module
+import java.time.Clock
+import com.example.myweather.features.weather.domain.GetWeatherCheckAgeUseCase
+import com.example.myweather.features.weather.ui.WeatherCheckTimeFormatter
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
@@ -21,6 +29,14 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [28], application = Application::class)
 class WeatherUITest {
+    @Before fun startDependencies() {
+        startKoin { modules(module {
+            single { WeatherCheckTimeFormatter(GetWeatherCheckAgeUseCase(Clock.systemUTC())) }
+        }) }
+    }
+
+    @After fun stopDependencies() = stopKoin()
+
     @Test
     fun refreshingKeepsWeatherVisibleAndUsesCorrectTemperatureUnit() = runBlocking {
         Robolectric.buildActivity(Activity::class.java).setup().use { controller ->

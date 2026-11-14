@@ -4,7 +4,6 @@ import com.example.myweather.features.weather.domain.model.*
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.format.DateTimeFormatter
 import java.time.format.TextStyle
 import java.util.Locale
 import kotlinx.coroutines.CoroutineDispatcher
@@ -27,14 +26,12 @@ class GetWeatherForecastUseCase(
             val daylight = runCatching {
                 Duration.between(LocalDateTime.parse(daily.sunrise.first()), LocalDateTime.parse(daily.sunset.first())).toMinutes().takeIf { it >= 0 }
             }.getOrNull()
-            val timestampPattern = if (currentTime.toLocalDate() == today) "HH:mm" else "d MMM, HH:mm"
-            val weatherAsOf = currentTime.format(DateTimeFormatter.ofPattern(timestampPattern, Locale.ENGLISH))
-            WeatherForecastDetails(forecast.current, weatherAsOf, nextHours,
+            WeatherForecastDetails(forecast.current, nextHours,
                 daily.time.indices.map { i ->
                     val date = LocalDate.parse(daily.time[i])
                     val label = if (date == today) "Today" else date.dayOfWeek.getDisplayName(TextStyle.FULL, Locale.ENGLISH)
                     DailyForecast(label, daily.precipitationProbabilityMax[i], daily.temperatureMax[i], daily.temperatureMin[i], daily.weatherCode[i])
                 }, daily.sunrise.firstOrNull()?.substringAfter('T') ?: "-",
-                daily.sunset.firstOrNull()?.substringAfter('T') ?: "-", forecast.locationName, daylight)
+                daily.sunset.firstOrNull()?.substringAfter('T') ?: "-", forecast.locationName, daylight, forecast.checkedAtMillis)
         }
 }
