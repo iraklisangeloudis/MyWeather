@@ -61,7 +61,7 @@ MyWeather is an intuitive weather application for Android, built using Kotlin an
 
 ## Demo
 
-[Watch the MyWeather demo](docs/myweather-demo.mp4) (MP4, 15 MB).
+[Watch the MyWeather demo](docs/myweather-demo.mp4) (MP4, under 10 MB).
 
 ## Screenshots
 
