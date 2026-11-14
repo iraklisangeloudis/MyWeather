@@ -17,6 +17,7 @@ import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
 import androidx.glance.appwidget.action.ActionCallback
+import androidx.glance.appwidget.CircularProgressIndicator
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.appWidgetBackground
 import androidx.glance.appwidget.cornerRadius
@@ -203,10 +204,22 @@ private fun WidgetFooter(context: Context, weather: WeatherForecastDetails, stat
             else -> context.getString(R.string.weather_as_of, weather.weatherAsOf)
         }
         Text(label, GlanceModifier.defaultWeight(), style = TextStyle(color = muted, fontSize = 10.sp), maxLines = 2)
-        if (status != "loading") {
+        RefreshControl(context, status == "loading")
+    }
+}
+
+@Composable
+private fun RefreshControl(context: Context, refreshing: Boolean) {
+    Box(
+        modifier = GlanceModifier.size(32.dp).background(Color(0x18FFFFFF)).cornerRadius(16.dp)
+            .clickable(actionRunCallback<RefreshWeatherAction>()).padding(7.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        if (refreshing) {
+            CircularProgressIndicator(modifier = GlanceModifier.size(18.dp), color = ink)
+        } else {
             Image(ImageProvider(R.drawable.widget_refresh_icon), contentDescription = context.getString(R.string.widget_refresh),
-                modifier = GlanceModifier.size(32.dp).background(Color(0x18FFFFFF)).cornerRadius(16.dp)
-                    .clickable(actionRunCallback<RefreshWeatherAction>()).padding(7.dp))
+                modifier = GlanceModifier.size(18.dp))
         }
     }
 }
