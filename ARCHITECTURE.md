@@ -26,6 +26,8 @@ The pull indicator uses animated dots, with explicit drawable invalidation and l
 
 Room schema version 2 preserves existing data through migration. Cached location labels are updated only when their coordinates match the stored forecast.
 
+`WeatherCacheDao` groups the three weather tables. Its `@Transaction` methods read and replace complete forecast snapshots atomically. Koin provides the DAO to the repository and widget data source; the repository does not access `WeatherDatabase` directly.
+
 ## Home-screen widget
 
 `features/weather/widget/` uses Jetpack Glance alongside the Views/XML screen. All widget instances follow the app's single saved location. Compact layouts show current conditions; taller cards add high/low and hourly readings. Wide layouts place current conditions beside three or four daily forecast rows. Day, cloudy, and night gradients follow the displayed forecast. `WeatherWidgetContent` owns presentation while `WeatherWidget` prepares cached snapshots and small static Meteocons bitmaps; widgets do not animate.

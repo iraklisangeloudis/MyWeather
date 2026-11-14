@@ -7,6 +7,7 @@ import com.example.myweather.database.WeatherDatabase
 import com.example.myweather.features.weather.data.WeatherRepositoryImpl
 import com.example.myweather.features.weather.data.WeatherCacheNotifier
 import com.example.myweather.features.weather.data.api.WeatherApi
+import com.example.myweather.features.weather.data.dao.WeatherCacheDao
 import com.example.myweather.features.weather.data.api.model.*
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -23,6 +24,7 @@ import org.robolectric.annotation.Config
 class WeatherRepositoryTest {
     private lateinit var context: Context
     private lateinit var database: WeatherDatabase
+    private lateinit var cacheDao: WeatherCacheDao
     private lateinit var repository: WeatherRepositoryImpl
     private var response = response(20.0)
     private var cacheChanges = 0
@@ -37,7 +39,8 @@ class WeatherRepositoryTest {
     @Before fun setUp() {
         context = RuntimeEnvironment.getApplication()
         database = Room.inMemoryDatabaseBuilder(context, WeatherDatabase::class.java).build()
-        repository = WeatherRepositoryImpl(api, database, cacheNotifier)
+        cacheDao = database.weatherCacheDao()
+        repository = WeatherRepositoryImpl(api, cacheDao, cacheNotifier)
     }
 
     @After fun tearDown() = database.close()
@@ -45,7 +48,8 @@ class WeatherRepositoryTest {
     @Test fun completeForecastSurvivesCacheRestoration() = runBlocking {
         assertNull(repository.getCachedWeather())
         val fresh = repository.refreshWeather(37.98, 23.72)
-        val restored = WeatherRepositoryImpl(api, database, cacheNotifier).getCachedWeather()
+        val restored = WeatherRepositoryImpl(api, cacheDao, cacheNotifier)
+            .getCachedWeather()
         assertEquals(fresh, restored)
         assertEquals(48, restored!!.hourly.time.size)
         assertEquals(1, cacheChanges)
@@ -75,7 +79,7 @@ class WeatherRepositoryTest {
         val migrated = Room.databaseBuilder(context, WeatherDatabase::class.java, name)
             .addMigrations(WeatherDatabase.MIGRATION_1_2).build()
         try {
-            val current = migrated.currentWeatherDao().getCurrentWeather()!!
+            val current = migrated.weatherCacheDao().getCurrentWeather()!!
             assertEquals(20.0, current.temperature, 0.0)
             assertEquals("", current.locationName)
             assertNull(current.latitude)

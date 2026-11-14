@@ -17,9 +17,7 @@ import org.koin.dsl.module
 
 val weatherModule = module {
     single<WeatherApi> { get<ApiClient>().weatherApi }
-    single { get<WeatherDatabase>().currentWeatherDao() }
-    single { get<WeatherDatabase>().hourlyWeatherDao() }
-    single { get<WeatherDatabase>().dailyWeatherDao() }
+    single { get<WeatherDatabase>().weatherCacheDao() }
     single<WeatherCacheNotifier> { WeatherWidgetCacheNotifier(androidContext()) }
     single<WeatherRepository> { WeatherRepositoryImpl(get(), get(), get()) }
     factory { GetWeatherForecastUseCase() }

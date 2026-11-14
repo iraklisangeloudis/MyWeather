@@ -1,9 +1,9 @@
 package com.example.myweather.features.weather.data
 
-import androidx.room.withTransaction
-import com.example.myweather.database.WeatherDatabase
 import com.example.myweather.features.location.domain.model.Coordinates
 import com.example.myweather.features.weather.data.api.WeatherApi
+import com.example.myweather.features.weather.data.dao.WeatherCacheDao
+import com.example.myweather.features.weather.data.dao.WeatherCacheSnapshot
 import com.example.myweather.features.weather.data.model.*
 import com.example.myweather.features.weather.domain.model.*
 import kotlinx.coroutines.CoroutineDispatcher
@@ -18,28 +18,23 @@ interface WeatherRepository {
 
 class WeatherRepositoryImpl(
     private val api: WeatherApi,
-    private val database: WeatherDatabase,
+    private val cacheDao: WeatherCacheDao,
     private val cacheNotifier: WeatherCacheNotifier,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : WeatherRepository {
     override suspend fun getCachedWeather(): WeatherForecast? = withContext(ioDispatcher) {
-        database.withTransaction {
-            val current = database.currentWeatherDao().getCurrentWeather() ?: return@withTransaction null
-            val hourly = database.hourlyWeatherDao().getHourlyWeather()
-            val daily = database.dailyWeatherDao().getDailyWeather()
-            if (hourly.isEmpty() || daily.isEmpty()) return@withTransaction null
-            WeatherForecast(
-                CurrentWeather(current.time, current.temperature, current.humidity, current.apparentTemperature,
-                    current.isDay, current.weatherCode, current.windSpeed),
-                HourlyWeather(hourly.map { it.time }, hourly.map { it.temperature },
-                    hourly.map { it.weatherCode }, hourly.map { it.isDay }),
-                DailyWeather(daily.map { it.date }, daily.map { it.weatherCode },
-                    daily.map { it.maxTemperature }, daily.map { it.minTemperature },
-                    daily.map { it.sunrise }, daily.map { it.sunset }, daily.map { it.precipitationProbability }),
-                current.locationName,
-                if (current.latitude != null && current.longitude != null) Coordinates(current.latitude, current.longitude) else null
-            )
-        }
+        val (current, hourly, daily) = cacheDao.getSnapshot() ?: return@withContext null
+        WeatherForecast(
+            CurrentWeather(current.time, current.temperature, current.humidity, current.apparentTemperature,
+                current.isDay, current.weatherCode, current.windSpeed),
+            HourlyWeather(hourly.map { it.time }, hourly.map { it.temperature },
+                hourly.map { it.weatherCode }, hourly.map { it.isDay }),
+            DailyWeather(daily.map { it.date }, daily.map { it.weatherCode },
+                daily.map { it.maxTemperature }, daily.map { it.minTemperature },
+                daily.map { it.sunrise }, daily.map { it.sunset }, daily.map { it.precipitationProbability }),
+            current.locationName,
+            if (current.latitude != null && current.longitude != null) Coordinates(current.latitude, current.longitude) else null
+        )
     }
 
     override suspend fun refreshWeather(latitude: Double, longitude: Double): WeatherForecast = withContext(ioDispatcher) {
@@ -56,7 +51,7 @@ class WeatherRepositoryImpl(
     }
 
     override suspend fun updateLocationName(latitude: Double, longitude: Double, name: String) = withContext(ioDispatcher) {
-        database.currentWeatherDao().updateLocationName(latitude, longitude, name)
+        cacheDao.updateLocationName(latitude, longitude, name)
         cacheNotifier.notifyChanged()
     }
 
@@ -77,14 +72,6 @@ class WeatherRepositoryImpl(
                 maxTemperature = daily.temperatureMax[i], minTemperature = daily.temperatureMin[i],
                 sunrise = daily.sunrise[i], sunset = daily.sunset[i], precipitationProbability = daily.precipitationProbabilityMax[i])
         }
-        // Replace the complete snapshot atomically; failures retain the previous cache.
-        database.withTransaction {
-            database.currentWeatherDao().clearCurrentWeather()
-            database.hourlyWeatherDao().clearHourlyWeather()
-            database.dailyWeatherDao().clearDailyWeather()
-            database.currentWeatherDao().insertCurrentWeather(currentEntity)
-            database.hourlyWeatherDao().insertHourlyWeather(hourlyEntities)
-            database.dailyWeatherDao().insertDailyWeather(dailyEntities)
-        }
+        cacheDao.replaceSnapshot(WeatherCacheSnapshot(currentEntity, hourlyEntities, dailyEntities))
     }
 }
