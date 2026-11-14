@@ -276,7 +276,7 @@ class WeatherUI(
             if (isRefreshing) context.getString(R.string.refreshing_weather) else null)
     }
 
-    fun onDestroyView() {
+    fun onDestroy() {
         stopCheckTimeUpdates()
         locationRequests.close()
         binding.imageViewWeather.cancelAnimation()

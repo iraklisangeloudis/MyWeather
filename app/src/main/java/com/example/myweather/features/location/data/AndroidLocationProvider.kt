@@ -16,21 +16,27 @@ import kotlinx.coroutines.suspendCancellableCoroutine
 
 class AndroidLocationProvider(private val context: Context) : DeviceLocationProvider {
     override fun hasPermission(): Boolean {
-        return ContextCompat.checkSelfPermission(context, Manifest.permission.ACCESS_FINE_LOCATION) == PackageManager.PERMISSION_GRANTED
+        return hasPrecisePermission() || ContextCompat.checkSelfPermission(
+            context, Manifest.permission.ACCESS_COARSE_LOCATION
+        ) == PackageManager.PERMISSION_GRANTED
     }
 
     override fun isEnabled(): Boolean {
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
-        return locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
-                locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+        return availableProvider(locationManager) != null
     }
 
     @SuppressLint("MissingPermission")
     override suspend fun getLocation(): Coordinates? = suspendCancellableCoroutine { continuation ->
         val locationManager = context.getSystemService(Context.LOCATION_SERVICE) as LocationManager
+        val provider = availableProvider(locationManager)
+        if (provider == null) {
+            continuation.resume(null)
+            return@suspendCancellableCoroutine
+        }
         val locationListener = object : LocationListener {
             override fun onLocationChanged(location: Location) {
-                if (continuation.isActive) continuation.resume(Coordinates(location.latitude, location.longitude))  // Resume the coroutine with the location
+                if (continuation.isActive) continuation.resume(Coordinates(location.latitude, location.longitude))
                 locationManager.removeUpdates(this)
             }
 
@@ -40,7 +46,7 @@ class AndroidLocationProvider(private val context: Context) : DeviceLocationProv
         }
 
         locationManager.requestLocationUpdates(
-            if (locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER)) LocationManager.GPS_PROVIDER else LocationManager.NETWORK_PROVIDER,
+            provider,
             0L,
             0f,
             locationListener
@@ -49,5 +55,15 @@ class AndroidLocationProvider(private val context: Context) : DeviceLocationProv
         continuation.invokeOnCancellation {
             locationManager.removeUpdates(locationListener)
         }
+    }
+
+    private fun hasPrecisePermission(): Boolean = ContextCompat.checkSelfPermission(
+        context, Manifest.permission.ACCESS_FINE_LOCATION
+    ) == PackageManager.PERMISSION_GRANTED
+
+    private fun availableProvider(manager: LocationManager): String? = when {
+        hasPrecisePermission() && manager.isProviderEnabled(LocationManager.GPS_PROVIDER) -> LocationManager.GPS_PROVIDER
+        manager.isProviderEnabled(LocationManager.NETWORK_PROVIDER) -> LocationManager.NETWORK_PROVIDER
+        else -> null
     }
 }

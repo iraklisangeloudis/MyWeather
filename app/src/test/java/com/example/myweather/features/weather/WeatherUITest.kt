@@ -62,7 +62,7 @@ class WeatherUITest {
             weatherUI.render(state.copy(message = "Unable to refresh weather"))
             assertFalse(binding.swipeRefresh.isRefreshing)
             assertTrue(binding.searchButton.isEnabled)
-            weatherUI.onDestroyView()
+            weatherUI.onDestroy()
         }
     }
 
@@ -153,7 +153,7 @@ class WeatherUITest {
             assertTrue(binding.locationHeader.performClick())
             val dialog = org.robolectric.shadows.ShadowDialog.getLatestDialog()
             assertEquals(fullName, dialog.findViewById<android.widget.TextView>(android.R.id.message).text)
-            ui.onDestroyView()
+            ui.onDestroy()
             assertFalse(dialog.isShowing)
         }
     }

@@ -11,7 +11,7 @@ network/            # Retrofit clients and safe failure messages
 
 ## Responsibilities
 
-- `MainActivity` hosts the screen and implements `LocationPermissionHost` to handle Android permission dialogs/results. `WeatherUI` requests access through that interface; the activity forwards permission results to the screen.
+- `MainActivity` hosts the screen with a dedicated UI setup method and implements `LocationPermissionHost`. Its registered Activity Result launcher requests coarse and fine location together and forwards either grant as success to the screen; AndroidX restores pending permission results across recreation. `WeatherUI` requests access through the host interface.
 - `WeatherUI` owns view creation, listeners, rendering, and lifecycle cleanup. It accesses the ViewModel through the Activity's ViewModelStore, preserving state across recreation.
 - `WeatherViewModel` exposes one `StateFlow<WeatherViewState>` and coordinates weather, search, and cache updates. Flow operators cancel stale requests; there are no manually managed Job fields.
 - Use cases prepare display data and limit device-location lookup to 15 seconds. Repositories handle API/cache work on IO; forecast preparation runs on Default. API methods use `fetch...`; one-time DAO reads use `get...`.
@@ -19,6 +19,8 @@ network/            # Retrofit clients and safe failure messages
 ## Screen behavior
 
 Launch restores cached weather without requesting location or refreshing. Pull-to-refresh uses current device coordinates; selecting a search result fetches that city. Refresh failures retain the existing forecast.
+
+Device lookup accepts approximate or precise location permission. GPS is selected only with precise permission; approximate access uses an enabled network provider. When no permitted provider is enabled, the screen reports that location is disabled. Lookup remains cancellable with a 15-second timeout.
 
 Scroll position expands the details, sunrise/sunset, and daily cards. Reduced-motion and screen-reader modes show full cards. Day/night colors follow the current forecast. Long location names wrap to two lines; tapping reveals the full location.
 

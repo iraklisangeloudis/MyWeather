@@ -159,13 +159,15 @@ class ManualRefreshTest {
 
     @Test fun hostPermissionDenialEndsTheScreensRefresh() = runTest(dispatcher) {
         hasLocationPermission = false
+        shadowOf(RuntimeEnvironment.getApplication()).denyPermissions(
+            Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
         Robolectric.buildActivity(MainActivity::class.java).setup().use { controller ->
             val activity = controller.get()
             advanceUntilIdle()
             val refresh = activity.findViewById<View>(R.id.weatherScroll)
             refresh.performAccessibilityAction(R.id.action_refresh_weather, null)
             advanceUntilIdle()
-            activity.onRequestPermissionsResult(1, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), intArrayOf(android.content.pm.PackageManager.PERMISSION_DENIED))
+            deliverLocationPermissionResult(activity, precise = false, approximate = false)
             advanceUntilIdle()
             assertEquals(0, locationRequests)
             assertTrue(fetched.isEmpty())
@@ -175,6 +177,8 @@ class ManualRefreshTest {
 
     @Test fun hostPermissionGrantResumesTheScreensRefresh() = runTest(dispatcher) {
         hasLocationPermission = false
+        shadowOf(RuntimeEnvironment.getApplication()).denyPermissions(
+            Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
         Robolectric.buildActivity(MainActivity::class.java).setup().use { controller ->
             val activity = controller.get()
             advanceUntilIdle()
@@ -184,12 +188,48 @@ class ManualRefreshTest {
             assertNotNull(shadowOf(activity).lastRequestedPermission)
             assertEquals(0, locationRequests)
             hasLocationPermission = true
-            activity.onRequestPermissionsResult(1, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), intArrayOf(android.content.pm.PackageManager.PERMISSION_GRANTED))
+            deliverLocationPermissionResult(activity, precise = true, approximate = true)
             advanceUntilIdle()
             assertEquals(1, locationRequests)
             assertEquals(listOf(Coordinates(37.98, 23.72)), fetched)
             assertTrue(refresh.isEnabled)
         }
+    }
+
+    @Test fun approximatePermissionResumesRefreshAfterHostRecreation() = runTest(dispatcher) {
+        hasLocationPermission = false
+        shadowOf(RuntimeEnvironment.getApplication()).denyPermissions(
+            Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION)
+        Robolectric.buildActivity(MainActivity::class.java).setup().use { controller ->
+            advanceUntilIdle()
+            controller.get().findViewById<View>(R.id.weatherScroll)
+                .performAccessibilityAction(R.id.action_refresh_weather, null)
+            advanceUntilIdle()
+            val request = shadowOf(controller.get()).lastRequestedPermission!!
+            assertEquals(setOf(Manifest.permission.ACCESS_FINE_LOCATION, Manifest.permission.ACCESS_COARSE_LOCATION),
+                request.requestedPermissions.toSet())
+            controller.recreate()
+            advanceUntilIdle()
+            hasLocationPermission = true
+            controller.get().onRequestPermissionsResult(request.requestCode, request.requestedPermissions,
+                request.requestedPermissions.map {
+                    if (it == Manifest.permission.ACCESS_COARSE_LOCATION) android.content.pm.PackageManager.PERMISSION_GRANTED
+                    else android.content.pm.PackageManager.PERMISSION_DENIED
+                }.toIntArray())
+            advanceUntilIdle()
+            assertEquals(1, locationRequests)
+            assertEquals(listOf(Coordinates(37.98, 23.72)), fetched)
+        }
+    }
+
+    private fun deliverLocationPermissionResult(activity: MainActivity, precise: Boolean, approximate: Boolean) {
+        val request = shadowOf(activity).lastRequestedPermission!!
+        activity.onRequestPermissionsResult(request.requestCode, request.requestedPermissions,
+            request.requestedPermissions.map {
+                val granted = if (it == Manifest.permission.ACCESS_FINE_LOCATION) precise else approximate
+                if (granted) android.content.pm.PackageManager.PERMISSION_GRANTED
+                else android.content.pm.PackageManager.PERMISSION_DENIED
+            }.toIntArray())
     }
 
 }
