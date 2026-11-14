@@ -24,6 +24,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.mapLatest
 import org.koin.core.component.KoinComponent
 import org.koin.core.component.inject
+import androidx.core.graphics.createBitmap
 
 class WeatherWidget : GlanceAppWidget(), KoinComponent {
     private val dataSource: WeatherWidgetDataSource by inject()
@@ -61,6 +62,6 @@ class WeatherWidget : GlanceAppWidget(), KoinComponent {
             progress = 0f
             setBounds(0, 0, size, size)
         }
-        Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888).also { drawable.draw(Canvas(it)) }
+        createBitmap(size, size).also { drawable.draw(Canvas(it)) }
     }.getOrNull()
 }

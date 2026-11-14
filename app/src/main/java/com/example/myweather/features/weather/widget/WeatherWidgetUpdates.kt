@@ -25,12 +25,12 @@ object WeatherWidgetUpdates {
         }.onFailure { Log.w("WeatherWidget", "Unable to schedule widget update", it) }
     }
 
-    fun refresh(context: Context) {
+    suspend fun refresh(context: Context) {
         WorkManager.getInstance(context).enqueueUniqueWork(
             "weather-widget-refresh", ExistingWorkPolicy.KEEP,
             OneTimeWorkRequestBuilder<WeatherWidgetWorker>()
                 .setInputData(workDataOf(REFRESH to true)).build()
-        )
+        ).await()
     }
 
     fun schedule(context: Context) {

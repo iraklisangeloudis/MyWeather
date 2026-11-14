@@ -7,16 +7,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.glance.GlanceId
 import androidx.glance.ColorFilter
 import androidx.glance.GlanceModifier
 import androidx.glance.Image
 import androidx.glance.ImageProvider
 import androidx.glance.LocalSize
-import androidx.glance.action.ActionParameters
 import androidx.glance.action.actionStartActivity
 import androidx.glance.action.clickable
-import androidx.glance.appwidget.action.ActionCallback
 import androidx.glance.appwidget.CircularProgressIndicator
 import androidx.glance.appwidget.action.actionRunCallback
 import androidx.glance.appwidget.appWidgetBackground
@@ -221,11 +218,5 @@ private fun RefreshControl(context: Context, refreshing: Boolean) {
             Image(ImageProvider(R.drawable.widget_refresh_icon), contentDescription = context.getString(R.string.widget_refresh),
                 modifier = GlanceModifier.size(18.dp))
         }
-    }
-}
-
-class RefreshWeatherAction : ActionCallback {
-    override suspend fun onAction(context: Context, glanceId: GlanceId, parameters: ActionParameters) {
-        WeatherWidgetUpdates.refresh(context)
     }
 }
