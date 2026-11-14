@@ -11,7 +11,7 @@ network/            # Retrofit clients and safe failure messages
 
 ## Responsibilities
 
-- `MainActivity` hosts the screen and handles Android permission dialogs/results.
+- `MainActivity` hosts the screen and implements `LocationPermissionHost` to handle Android permission dialogs/results. `WeatherUI` requests access through that interface; the activity forwards permission results to the screen.
 - `WeatherUI` owns view creation, listeners, rendering, and lifecycle cleanup. It accesses the ViewModel through the Activity's ViewModelStore, preserving state across recreation.
 - `WeatherViewModel` exposes one `StateFlow<WeatherViewState>` and coordinates weather, search, and cache updates. Flow operators cancel stale requests; there are no manually managed Job fields.
 - Use cases prepare display data and limit device-location lookup to 15 seconds. Repositories handle API/cache work on IO; forecast preparation runs on Default. API methods use `fetch...`; one-time DAO reads use `get...`.

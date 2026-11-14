@@ -6,21 +6,22 @@ import android.os.Bundle
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import com.example.myweather.features.weather.ui.WeatherUI
+import com.example.myweather.features.location.ui.LocationPermissionHost
 
 /** Android host: creates the screen and forwards Android permission results. */
-class MainActivity : AppCompatActivity() {
+class MainActivity : AppCompatActivity(), LocationPermissionHost {
     private lateinit var weatherUI: WeatherUI
     private var awaitingLocationPermission = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         awaitingLocationPermission = savedInstanceState?.getBoolean("awaitingLocationPermission") ?: false
-        weatherUI = WeatherUI(this, ::requestLocationPermission)
+        weatherUI = WeatherUI(this, this)
         setContentView(weatherUI.createView())
         weatherUI.onViewCreated()
     }
 
-    private fun requestLocationPermission() {
+    override fun requestLocationPermission() {
         awaitingLocationPermission = true
         ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.ACCESS_FINE_LOCATION), LOCATION_PERMISSION_REQUEST_CODE)
     }

@@ -32,6 +32,9 @@ import com.example.myweather.databinding.ActivityMainBinding
 import com.example.myweather.databinding.ItemDailyWeatherBinding
 import com.example.myweather.features.location.domain.GetCurrentLocationUseCase
 import com.example.myweather.features.location.domain.model.LocationSuggestion
+import com.example.myweather.features.location.ui.LocationPermissionHost
+import com.example.myweather.features.weather.domain.model.CurrentWeather
+import com.example.myweather.features.weather.domain.model.DailyForecast
 import com.example.myweather.features.weather.domain.model.WeatherForecastDetails
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -44,7 +47,7 @@ import org.koin.core.component.inject
 
 class WeatherUI(
     private val context: Context,
-    private val requestLocationPermission: () -> Unit
+    private val permissionHost: LocationPermissionHost
 ) : KoinComponent {
     private val activity: AppCompatActivity get() = context as AppCompatActivity
     // The screen accesses the ViewModel; Android retains it in the host's ViewModelStore.
@@ -54,24 +57,6 @@ class WeatherUI(
     private lateinit var binding: ActivityMainBinding
     private lateinit var searchHeader: ExpandableSearchHeader
 
-    fun createView(): View {
-        if (context is AppCompatActivity) applyNightMode(context, viewModel.viewState.value.weather)
-        binding = ActivityMainBinding.inflate(LayoutInflater.from(context))
-        searchHeader = ExpandableSearchHeader(binding)
-        ViewCompat.setAccessibilityHeading(binding.searchResultsTitle, true)
-        binding.locationHeader.setOnClickListener {
-            if (fullLocationName.isNotBlank()) {
-                locationDialog?.dismiss()
-                locationDialog = MaterialAlertDialogBuilder(context)
-                    .setTitle(R.string.location_details)
-                    .setMessage(fullLocationName)
-                    .setPositiveButton(android.R.string.ok, null)
-                    .show()
-            }
-        }
-        return binding.root
-    }
-
     private val heroBounds = Rect()
     private val cardBounds = Rect()
     private var scrollExpansion: WeatherScrollExpansion? = null
@@ -79,71 +64,128 @@ class WeatherUI(
     private var lastBackPress = 0L
     private var fullLocationName = ""
     private var locationDialog: AlertDialog? = null
+    private var renderedWeather: WeatherForecastDetails? = null
+    private var renderedSuggestions: List<LocationSuggestion> = emptyList()
+
+    fun createView(): View {
+        if (context is AppCompatActivity) applyNightMode(context, viewModel.viewState.value.weather)
+        binding = ActivityMainBinding.inflate(LayoutInflater.from(context))
+        searchHeader = ExpandableSearchHeader(binding)
+        ViewCompat.setAccessibilityHeading(binding.searchResultsTitle, true)
+        setupLocationHeader()
+        return binding.root
+    }
+
+    private fun setupLocationHeader() {
+        binding.locationHeader.setOnClickListener {
+            showLocationDetails()
+        }
+    }
+
+    private fun showLocationDetails() {
+        if (fullLocationName.isBlank()) return
+        locationDialog?.dismiss()
+        locationDialog = MaterialAlertDialogBuilder(context)
+            .setTitle(R.string.location_details)
+            .setMessage(fullLocationName)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
+    }
 
     /** View setup and state observation belong to the screen, while the host owns permissions. */
     fun onViewCreated() {
         collectLocationRequests()
+        setupForecastViews()
+        setupRefresh()
+        setupSearch()
+        setupBackNavigation()
+        observeViewState()
+        updateSystemBars(activity)
+    }
+
+    private fun setupForecastViews() {
         binding.imageViewWeather.repeatCount = ValueAnimator.INFINITE
         binding.imageViewWeather.speed = .75f
         binding.recyclerViewTemperatures.layoutManager = LinearLayoutManager(context, LinearLayoutManager.HORIZONTAL, false)
         binding.recyclerViewTemperatures.adapter = TemperatureAdapter()
         scrollExpansion = WeatherScrollExpansion(binding.weatherScroll, binding.weatherContent, ::updateWeatherEffects)
         binding.mainLayout.onSkyColorChanged = { activity.window.statusBarColor = it }
-        binding.searchButton.setOnClickListener { toggleSearch() }
+    }
+
+    private fun setupRefresh() {
         binding.swipeRefresh.setOnChildScrollUpCallback { _, _ -> binding.weatherScroll.canScrollVertically(-1) }
         binding.swipeRefresh.setColorSchemeResources(R.color.weather_accent)
         binding.swipeRefresh.setProgressBackgroundColorSchemeResource(R.color.weather_surface)
         val density = context.resources.displayMetrics.density
         binding.swipeRefresh.setProgressViewOffset(false, (-40 * density).toInt(), (56 * density).toInt())
-        val refresh = {
-            if (!refreshing) {
-                closeSearch()
-                renderRefresh(true)
-                refreshCurrentLocation()
-            }
-        }
-        binding.swipeRefresh.setOnRefreshListener { refresh() }
+        binding.swipeRefresh.setOnRefreshListener { onRefreshRequested() }
         // Screen readers can refresh without performing the pull gesture.
         val refreshLabel = context.getString(R.string.refresh_current_location)
         ViewCompat.replaceAccessibilityAction(binding.weatherScroll,
             AccessibilityNodeInfoCompat.AccessibilityActionCompat(R.id.action_refresh_weather, refreshLabel), refreshLabel
         ) { _, _ ->
-            if (refreshing) false else { refresh(); true }
+            if (refreshing) false else { onRefreshRequested(); true }
         }
+    }
+
+    private fun onRefreshRequested() {
+        if (refreshing) return
+        closeSearch()
+        renderRefresh(true)
+        refreshCurrentLocation()
+    }
+
+    private fun setupSearch() {
+        binding.searchButton.setOnClickListener { toggleSearch() }
         binding.editTextLocation.addTextChangedListener(object : TextWatcher {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) = Unit
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) = Unit
             override fun afterTextChanged(s: Editable?) { viewModel.searchLocations(s?.toString().orEmpty()) }
         })
+    }
+
+    private fun setupBackNavigation() {
         activity.onBackPressedDispatcher.addCallback(activity, object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
-                if (searchHeader.isExpanded || binding.listViewLocations.isVisible) {
-                    closeSearch()
-                } else if (SystemClock.elapsedRealtime() - lastBackPress < 2000 && lastBackPress != 0L) {
-                    activity.finish()
-                } else {
-                    lastBackPress = SystemClock.elapsedRealtime()
-                    Toast.makeText(context, R.string.press_back_again, Toast.LENGTH_SHORT).show()
-                }
+                onBackPressed()
             }
         })
+    }
+
+    private fun onBackPressed() {
+        if (searchHeader.isExpanded || binding.listViewLocations.isVisible) {
+            closeSearch()
+        } else if (SystemClock.elapsedRealtime() - lastBackPress < 2000 && lastBackPress != 0L) {
+            activity.finish()
+        } else {
+            lastBackPress = SystemClock.elapsedRealtime()
+            Toast.makeText(context, R.string.press_back_again, Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun observeViewState() {
         activity.lifecycleScope.launch {
             activity.repeatOnLifecycle(Lifecycle.State.STARTED) {
                 try {
                     viewModel.viewState.collect { state ->
                         render(state)
-                        state.message?.let {
-                            Toast.makeText(context, it, Toast.LENGTH_SHORT).show()
-                            viewModel.messageShown(it)
-                        }
+                        state.message?.let(::showMessage)
                     }
                 } finally {
-                    binding.imageViewWeather.pauseAnimation()
-                    binding.mainLayout.setMotionAllowed(false)
+                    pauseWeatherEffects()
                 }
             }
         }
-        updateSystemBars(activity)
+    }
+
+    private fun showMessage(message: String) {
+        Toast.makeText(context, message, Toast.LENGTH_SHORT).show()
+        viewModel.messageShown(message)
+    }
+
+    private fun pauseWeatherEffects() {
+        binding.imageViewWeather.pauseAnimation()
+        binding.mainLayout.setMotionAllowed(false)
     }
 
     private fun collectLocationRequests() {
@@ -171,7 +213,7 @@ class WeatherUI(
         viewModel.locationLookupStarted()
         try {
             when (val result = getCurrentLocation()) {
-                GetCurrentLocationUseCase.Result.PermissionRequired -> requestLocationPermission()
+                GetCurrentLocationUseCase.Result.PermissionRequired -> permissionHost.requestLocationPermission()
                 GetCurrentLocationUseCase.Result.Disabled -> viewModel.locationLookupFinished(context.getString(R.string.location_disabled))
                 GetCurrentLocationUseCase.Result.Unavailable -> viewModel.locationLookupFinished(context.getString(R.string.location_unavailable))
                 is GetCurrentLocationUseCase.Result.Located ->
@@ -234,33 +276,39 @@ class WeatherUI(
         }
     }
 
-    private var renderedWeather: WeatherForecastDetails? = null
-    private var renderedSuggestions: List<LocationSuggestion> = emptyList()
-
     fun render(state: WeatherViewState) {
         (context as? AppCompatActivity)?.let { applyNightMode(it, state.weather) }
         binding.mainLayout.setWeather(state.weather?.current?.weatherCode, state.weather?.current?.isDay)
-        val hasWeather = state.weather != null
+        renderWeatherVisibility(state.weather != null)
+        if (renderedWeather != state.weather) {
+            state.weather?.let(::renderWeather)
+            renderedWeather = state.weather
+        }
+        renderLocationHeader(state.cityName, state.weather != null)
+        renderRefresh(state.isLocating || state.isRefreshing)
+        binding.swipeRefresh.isEnabled = state.searchQuery.isBlank()
+        renderSearch(state)
+        updateWeatherEffects()
+    }
+
+    private fun renderWeatherVisibility(hasWeather: Boolean) {
         binding.emptyState.visibility = if (hasWeather) View.GONE else View.VISIBLE
         listOf(binding.weatherHero, binding.hourlyCard, binding.metricsSection, binding.sunSection, binding.dailySection).forEach {
             it.visibility = if (hasWeather) View.VISIBLE else View.GONE
         }
         binding.recyclerViewTemperatures.visibility = if (hasWeather) View.VISIBLE else View.GONE
         binding.dailyWeatherLayout.visibility = if (hasWeather) View.VISIBLE else View.GONE
-        if (renderedWeather != state.weather) {
-            state.weather?.let(::renderWeather)
-            renderedWeather = state.weather
-        }
-        fullLocationName = state.cityName.trim()
+    }
+
+    private fun renderLocationHeader(cityName: String, hasWeather: Boolean) {
+        fullLocationName = cityName.trim()
         binding.locationHeader.isClickable = fullLocationName.isNotBlank()
         binding.locationHeader.isFocusable = fullLocationName.isNotBlank()
         binding.locationHeader.contentDescription = fullLocationName.ifBlank { context.getString(R.string.app_name) }
-        binding.textViewCityName.text = state.cityName.lineSequence().firstOrNull().orEmpty().trim().trimEnd(',').ifBlank { context.getString(if (hasWeather) R.string.saved_location else R.string.app_name) }
-        binding.locationContext.text = state.cityName.lineSequence().drop(1).joinToString(" ").trim().ifBlank { context.getString(R.string.weather_home) }
-        renderRefresh(state.isLocating || state.isRefreshing)
-        binding.swipeRefresh.isEnabled = state.searchQuery.isBlank()
-        renderSearch(state)
-        updateWeatherEffects()
+        binding.textViewCityName.text = cityName.lineSequence().firstOrNull().orEmpty().trim().trimEnd(',')
+            .ifBlank { context.getString(if (hasWeather) R.string.saved_location else R.string.app_name) }
+        binding.locationContext.text = cityName.lineSequence().drop(1).joinToString(" ").trim()
+            .ifBlank { context.getString(R.string.weather_home) }
     }
 
     fun toggleSearch() {
@@ -312,24 +360,40 @@ class WeatherUI(
     }
 
     private fun renderWeather(weather: WeatherForecastDetails) {
+        renderCurrentConditions(weather)
+        renderMetrics(weather.current)
+        renderSunTimes(weather)
+        renderDailyForecast(weather.daily)
+        binding.textViewTime.text = context.getString(R.string.weather_as_of, weather.weatherAsOf)
+        (binding.recyclerViewTemperatures.adapter as TemperatureAdapter).submitList(weather.hourly)
+    }
+
+    private fun renderCurrentConditions(weather: WeatherForecastDetails) {
         val current = weather.current
         binding.textViewTemperature.text = context.getString(R.string.temperature_value, current.temperature)
         binding.textViewTemperature.contentDescription = context.getString(R.string.temperature_accessible, current.temperature)
         binding.textViewCondition.setText(WeatherTheme.description(current.weatherCode, current.isDay))
         weather.daily.firstOrNull()?.let { binding.textViewHighLow.text = context.getString(R.string.high_low, it.maximum, it.minimum) }
+        WeatherIcons.bind(binding.imageViewWeather, current.weatherCode, current.isDay)
+    }
+
+    private fun renderMetrics(current: CurrentWeather) {
         binding.textViewHumidity.text = context.getString(R.string.humidity_value, current.humidity)
         binding.textViewWindSpeed.text = context.getString(R.string.wind_value, current.windSpeed)
         binding.textViewFeelsLike.text = context.getString(R.string.temperature_value, current.apparentTemperature)
-        WeatherIcons.bind(binding.imageViewWeather, current.weatherCode, current.isDay)
-        binding.textViewTime.text = context.getString(R.string.weather_as_of, weather.weatherAsOf)
-        (binding.recyclerViewTemperatures.adapter as TemperatureAdapter).submitList(weather.hourly)
+    }
+
+    private fun renderSunTimes(weather: WeatherForecastDetails) {
         binding.sunRiseTextView.text = weather.sunrise
         binding.sunSetTextView.text = weather.sunset
         binding.daylightText.visibility = if (weather.daylightMinutes == null) View.GONE else View.VISIBLE
         weather.daylightMinutes?.let { binding.daylightText.text = context.getString(R.string.daylight_duration, it / 60, it % 60) }
-        binding.dayCount.text = context.getString(R.string.forecast_days, weather.daily.size)
+    }
+
+    private fun renderDailyForecast(days: List<DailyForecast>) {
+        binding.dayCount.text = context.getString(R.string.forecast_days, days.size)
         binding.dailyWeatherLayout.removeAllViews()
-        weather.daily.forEach { day ->
+        days.forEach { day ->
             val row = ItemDailyWeatherBinding.inflate(LayoutInflater.from(context), binding.dailyWeatherLayout, false)
             row.dayName.text = day.day
             WeatherIcons.bind(row.dayIcon, day.weatherCode, 1)
