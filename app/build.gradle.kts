@@ -10,12 +10,14 @@ plugins {
 
 android {
     namespace = "com.example.myweather"
-    compileSdk = 34
+    //noinspection GradleDependency
+    compileSdk = 36
 
     defaultConfig {
         applicationId = "com.example.myweather"
         minSdkVersion(rootProject.extra["defaultMinSdkVersion"] as Int)
-        targetSdk = 34
+        //noinspection OldTargetApi
+        targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
